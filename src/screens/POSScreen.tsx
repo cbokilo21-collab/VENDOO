@@ -8,6 +8,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { useAuth } from '../contexts/AuthContext';
+import { OrderService } from '../services/orderService';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -143,6 +145,7 @@ const TABS: { key: TabKey; label: string; emoji: string }[] = [
 const POSScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { boutiqueData } = useBoutique();
+  const { user } = useAuth();
   const isDesktop = Dimensions.get('window').width >= 768;
 
   // Core state
@@ -214,10 +217,39 @@ const POSScreen: React.FC = () => {
     });
   };
 
+  // Persist the sale as a paid order in Firestore (best-effort, non-blocking).
+  const persistOrder = async () => {
+    if (!user) return; // anonymous/offline: keep local-only behaviour
+    try {
+      const id = await OrderService.create(user.uid, {
+        client: 'Client comptoir',
+        email: boutiqueData.email || '',
+        boutiqueId: boutiqueData.nom || undefined,
+        items: cart.map(item => ({
+          productId: item.product.id,
+          nom: item.product.nom,
+          prix: item.product.prix,
+          quantity: item.qty,
+        })),
+        subtotal,
+        discount: discountAmt,
+        total,
+        paymentMethod: pay,
+      } as any);
+      // A POS sale is settled on the spot.
+      await OrderService.updateStatus(id, 'paid');
+    } catch (e) {
+      console.warn('POS order persistence failed:', e);
+    }
+  };
+
   // Confirm payment
   const confirmPay = () => {
     if (pay === 'cash' && monnaie < 0) return;
-    
+
+    // Persist to Firestore in the background — UX continues regardless.
+    persistOrder();
+
     // Prepare sale data for invoice
     const saleData = {
       items: cart.map(item => ({
@@ -231,7 +263,7 @@ const POSScreen: React.FC = () => {
       total,
       method: pay === 'cash' ? 'Espèces' : pay === 'card' ? 'Carte' : 'Mobile',
     };
-    
+
     const newSale: RecentSale = {
       id: Date.now().toString(), total, items: totalItems, method: pay,
       time: now(),
