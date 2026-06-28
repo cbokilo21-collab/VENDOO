@@ -1,310 +1,284 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, Animated, Easing, Modal, Platform } from 'react-native';
+import {
+  View, StyleSheet, Text, ScrollView, TouchableOpacity,
+  Animated, Easing, Platform, TextInput,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Svg, { Path, Circle } from 'react-native-svg';
 import BottomNavigation from '../components/BottomNavigation';
-import Svg, { Path, Circle, Rect, G, Line } from 'react-native-svg';
-import { aiService } from '../services/AIService';
+import { T, shadow, radius } from '../theme';
+import { OrderStatus, ORDER_STATUS_META } from '../services/orderService';
 
-const C = {
-  navy: '#FF6B35', sideMuted: '#64748B',
-  bg: '#F6F7F9', surface: '#FFFFFF', border: '#E5E7EB',
-  accent: '#FF6B35', textDark: '#111827', textMid: '#374151', textLight: '#6B7280', muted: '#9CA3AF',
-  success: '#10B981', warning: '#F59E0B', error: '#EF4444', info: '#3B82F6', purple: '#8B5CF6',
-  white: '#FFFFFF',
-};
+type Nav = NativeStackNavigationProp<any>;
 
-type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded' | 'return_requested' | 'return_approved';
-interface Order { 
-  id: string; 
-  client: string; 
-  email: string;
-  montant: number; 
-  status: OrderStatus; 
-  date: string; 
-  items: number; 
-  fraudRisk?: 'low'|'medium'|'high';
-  trackingNumber?: string;
-  carrier?: string;
-  shippingAddress?: string;
-  returnReason?: string;
-  refundAmount?: number;
-  subscription?: boolean;
-  subscriptionId?: string;
-}
-type RootStackParamList = { BusinessDashboard: undefined; Products: undefined; Orders: undefined; Customers: undefined; Settings: undefined; };
-type Nav = NativeStackNavigationProp<RootStackParamList, 'Orders'>;
-
-const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
-  pending:         { label: 'En attente',        color: C.warning },
-  processing:      { label: 'En cours',          color: C.info    },
-  shipped:         { label: 'Expédié',           color: C.purple  },
-  delivered:       { label: 'Livré',             color: C.success },
-  cancelled:       { label: 'Annulé',            color: C.error   },
-  refunded:        { label: 'Remboursé',         color: C.error   },
-  return_requested:{ label: 'Retour demandé',   color: C.warning },
-  return_approved: { label: 'Retour approuvé',   color: C.info    },
-};
-
-const DashIcon  = ({ a }: { a?: boolean }) => <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={a ? C.white : C.sideMuted} strokeWidth={2}><Path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3" strokeLinecap="round" strokeLinejoin="round"/></Svg>;
-const BoxIcon   = ({ a }: { a?: boolean }) => <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={a ? C.white : C.sideMuted} strokeWidth={2}><Path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" strokeLinecap="round" strokeLinejoin="round"/></Svg>;
-const ClipIcon  = ({ a }: { a?: boolean }) => <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={a ? C.white : C.sideMuted} strokeWidth={2}><Path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 10h6M9 14h6M9 18h6" strokeLinecap="round" strokeLinejoin="round"/></Svg>;
-const UsersIcon = ({ a }: { a?: boolean }) => <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={a ? C.white : C.sideMuted} strokeWidth={2}><Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round"/><Circle cx="9" cy="7" r="4"/></Svg>;
-const GearIcon  = ({ a }: { a?: boolean }) => <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={a ? C.white : C.sideMuted} strokeWidth={2}><Circle cx="12" cy="12" r="3"/><Path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" strokeLinecap="round" strokeLinejoin="round"/></Svg>;
-
-const navItems = [
-  { key: 'BusinessDashboard', label: 'Dashboard',  Icon: DashIcon  },
-  { key: 'Products',          label: 'Produits',   Icon: BoxIcon   },
-  { key: 'Orders',            label: 'Commandes',  Icon: ClipIcon  },
-  { key: 'Customers',         label: 'Clients',    Icon: UsersIcon },
-  { key: 'Settings',          label: 'Paramètres', Icon: GearIcon  },
-];
-
-const Sidebar: React.FC<{ active: string; onNav: (s: string) => void }> = ({ active, onNav }) => (
-  <View style={s.sidebar}>
-    <View style={s.sideLogoRow}>
-      <View style={s.logoMark}><Text style={s.logoMarkText}>V</Text></View>
-      <Text style={s.logoName}>Vendoo</Text>
-    </View>
-    <Text style={s.sideSection}>NAVIGATION</Text>
-    {navItems.map(({ key, label, Icon }) => {
-      const isActive = active === key;
-      return (
-        <TouchableOpacity key={key} style={[s.navItem, isActive && s.navItemActive]} onPress={() => onNav(key)} activeOpacity={0.7}>
-          <Icon a={isActive} />
-          <Text style={[s.navLabel, isActive && s.navLabelActive]}>{label}</Text>
-        </TouchableOpacity>
-      );
-    })}
-  </View>
+const Ic = ({ d, s = 16, c = T.textMid, w = 2 }: { d: string; s?: number; c?: string; w?: number }) => (
+  <Svg width={s} height={s} viewBox="0 0 24 24" fill="none"
+    stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
+    <Path d={d} />
+  </Svg>
 );
 
-// ─── Animated Card Component ───────────────────────────────────────────────────
-const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?: any }> = ({ children, delay = 0, style }) => {
-  const animY = useRef(new Animated.Value(20)).current;
-  const animOpacity = useRef(new Animated.Value(0)).current;
+const FadeIn: React.FC<{ delay?: number; children: React.ReactNode; style?: any }> = ({ delay = 0, children, style }) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(animY, {
-        toValue: 0,
-        duration: 600,
-        delay,
-        easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true,
-      }),
-      Animated.timing(animOpacity, {
-        toValue: 1,
-        duration: 500,
-        delay,
-        easing: Easing.ease,
-        useNativeDriver: true,
-      }),
+      Animated.timing(opacity, { toValue: 1, duration: 450, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
   }, []);
 
-  return (
-    <Animated.View style={[style, { opacity: animOpacity, transform: [{ translateY: animY }] }]}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;
 };
+
+// ─── Demo data ────────────────────────────────────────────────────────────────
+const DEMO_ORDERS = [
+  {
+    id: '#1048', orderNumber: '#1048', client: 'Sophie Martin',  email: 'sophie@gmail.com',
+    montant: 182_500, total: 182_500, status: 'delivered' as OrderStatus,
+    date: '28 juin', items: [{ nom: 'Sneakers ÉL', prix: 60_800, quantity: 3, emoji: '👟' }],
+    trackingNumber: 'FR123456789', carrier: 'Colissimo',
+    shippingAddress: '12 Rue de la Paix, 75001 Paris', paymentMethod: 'card',
+  },
+  {
+    id: '#1047', orderNumber: '#1047', client: 'Lucas Bernard',  email: 'lucas@gmail.com',
+    montant: 340_000, total: 340_000, status: 'processing' as OrderStatus,
+    date: '28 juin', items: [{ nom: 'Veste Bomber', prix: 68_000, quantity: 5, emoji: '🧥' }],
+    fraudRisk: 'high', paymentMethod: 'cash',
+  },
+  {
+    id: '#1046', client: 'Emma Dubois', email: 'emma@gmail.com',
+    montant: 97_000, total: 97_000, status: 'pending' as OrderStatus,
+    date: '27 juin', items: [{ nom: 'Sac Cuir', prix: 97_000, quantity: 1, emoji: '👜' }],
+    paymentMethod: 'mobile',
+  },
+  {
+    id: '#1045', client: 'Nathan Petit', email: 'nathan@gmail.com',
+    montant: 213_200, total: 213_200, status: 'shipped' as OrderStatus,
+    date: '26 juin', items: [{ nom: 'Écouteurs BT', prix: 53_300, quantity: 4, emoji: '🎧' }],
+    trackingNumber: 'FR987654321', carrier: 'DHL',
+    shippingAddress: '45 Av. des Champs, 75008 Paris', paymentMethod: 'card',
+  },
+  {
+    id: '#1044', client: 'Chloé Moreau',  email: 'chloe@gmail.com',
+    montant: 455_000, total: 455_000, status: 'paid' as OrderStatus,
+    date: '25 juin', items: [{ nom: 'Montre Classique', prix: 65_000, quantity: 7, emoji: '⌚' }],
+    paymentMethod: 'card',
+  },
+  {
+    id: '#1043', client: 'Tom Laurent',   email: 'tom@gmail.com',
+    montant: 68_000, total: 68_000, status: 'cancelled' as OrderStatus,
+    date: '24 juin', items: [{ nom: 'T-Shirt', prix: 34_000, quantity: 2, emoji: '👕' }],
+    paymentMethod: 'cash',
+  },
+];
+
+const STATUS_FILTERS: { key: OrderStatus | 'all'; label: string }[] = [
+  { key: 'all',        label: 'Toutes' },
+  { key: 'pending',    label: 'En attente' },
+  { key: 'processing', label: 'En cours' },
+  { key: 'shipped',    label: 'Expédié' },
+  { key: 'delivered',  label: 'Livré' },
+  { key: 'cancelled',  label: 'Annulé' },
+];
 
 const OrdersScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const isDesktop = Dimensions.get('window').width >= 1024;
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orders] = useState<Order[]>([
-    { id: '#1042', client: 'Sophie Martin',  email: 'sophie@gmail.com', montant: 182, status: 'delivered',  date: '27 juin', items: 3, trackingNumber: 'FR123456789', carrier: 'Colissimo', shippingAddress: '12 Rue de la Paix, 75001 Paris' },
-    { id: '#1041', client: 'Lucas Bernard',  email: 'lucas@gmail.com', montant: 340, status: 'processing', date: '27 juin', items: 5, fraudRisk: 'high' },
-    { id: '#1040', client: 'Emma Dubois',    email: 'emma@gmail.com', montant:  97, status: 'pending',    date: '26 juin', items: 1 },
-    { id: '#1039', client: 'Nathan Petit',   email: 'nathan@gmail.com', montant: 213, status: 'shipped',    date: '25 juin', items: 4, trackingNumber: 'FR987654321', carrier: 'DHL', shippingAddress: '45 Avenue des Champs, 75008 Paris' },
-    { id: '#1038', client: 'Chloé Moreau',  email: 'chloe@gmail.com', montant: 455, status: 'delivered',  date: '25 juin', items: 7 },
-    { id: '#1037', client: 'Tom Laurent',    email: 'tom@gmail.com', montant:  68, status: 'pending',    date: '24 juin', items: 2 },
-  ]);
+  const [search, setSearch] = useState('');
 
-  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-  const goTo = (screen: string) => { if (screen !== 'Orders') navigation.navigate(screen as any); };
+  const filtered = DEMO_ORDERS.filter(o => {
+    const matchStatus = filter === 'all' || o.status === filter;
+    const q = search.toLowerCase();
+    const matchSearch = !q || o.client.toLowerCase().includes(q) || o.id.includes(q);
+    return matchStatus && matchSearch;
+  });
 
-  const totalRevenue = orders.reduce((sum, o) => sum + o.montant, 0);
-  const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
-
-  const chips: { key: OrderStatus | 'all'; label: string }[] = [
-    { key: 'all', label: 'Toutes' },
-    { key: 'pending', label: 'En attente' },
-    { key: 'processing', label: 'En cours' },
-    { key: 'shipped', label: 'Expédié' },
-    { key: 'delivered', label: 'Livré' },
-  ];
-
-  const statItems = [
-    { label: 'Revenu total', value: `€${totalRevenue.toLocaleString()}`, color: C.success, icon: '💰' },
-    { label: 'Panier moyen', value: `€${avgOrderValue.toFixed(0)}`, color: C.info, icon: '📊' },
-    { label: 'En cours', value: orders.filter(o => o.status === 'processing').length.toString(), color: C.warning, icon: '⏳' },
-    { label: 'Livrées', value: orders.filter(o => o.status === 'delivered').length.toString(), color: C.success, icon: '✅' },
-  ];
+  const stats = {
+    total:   DEMO_ORDERS.length,
+    revenue: DEMO_ORDERS.filter(o => !['cancelled','refunded'].includes(o.status)).reduce((s, o) => s + o.montant, 0),
+    pending: DEMO_ORDERS.filter(o => o.status === 'pending' || o.status === 'processing').length,
+    done:    DEMO_ORDERS.filter(o => o.status === 'delivered').length,
+  };
 
   const content = (
-    <ScrollView style={s.content} contentContainerStyle={s.inner} showsVerticalScrollIndicator={false}>
-      {/* Header with gradient */}
-      <AnimatedCard delay={0} style={s.headerCard}>
-        <View style={s.headerTop}>
-          <View>
-            <Text style={s.pageTitle}>Commandes</Text>
-            <Text style={s.pageSubtitle}>{orders.length} commandes au total</Text>
-          </View>
-          <TouchableOpacity style={s.addOrderBtn}>
-            <Text style={s.addOrderBtnText}>+ Nouvelle</Text>
-          </TouchableOpacity>
+    <>
+      {/* Page heading */}
+      <FadeIn delay={0} style={st.pageHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={st.pageTitle}>Commandes</Text>
+          <Text style={st.pageSub}>{stats.total} commandes · {(stats.revenue / 1000).toFixed(0)}k F encaissés</Text>
         </View>
-      </AnimatedCard>
+        <TouchableOpacity style={st.newBtn} onPress={() => navigation.navigate('POS' as any)} activeOpacity={0.85}>
+          <Ic d="M12 5v14M5 12h14" s={16} c="#fff" w={2.5} />
+          <Text style={st.newBtnText}>Nouvelle vente</Text>
+        </TouchableOpacity>
+      </FadeIn>
 
-      {/* Stats with icons */}
-      <AnimatedCard delay={50} style={s.statsRow}>
-        {statItems.map((st, i) => (
-          <View key={i} style={[s.statCard, { borderTopColor: st.color }]}>
-            <Text style={s.statIcon}>{st.icon}</Text>
-            <Text style={[s.statValue, { color: st.color }]}>{st.value}</Text>
-            <Text style={s.statLabel}>{st.label}</Text>
+      {/* KPI row */}
+      <FadeIn delay={60} style={st.kpiRow}>
+        {[
+          { label: 'Total', value: stats.total.toString(),              icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2', tint: T.infoSoft,    ink: T.info    },
+          { label: 'Revenus', value: `${(stats.revenue/1_000_000).toFixed(1)}M F`, icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', tint: T.successSoft, ink: T.success },
+          { label: 'En cours', value: stats.pending.toString(),          icon: 'M12 8v4l3 3M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z', tint: T.warningSoft, ink: T.warning },
+          { label: 'Livrés', value: stats.done.toString(),               icon: 'M20 6L9 17l-5-5', tint: T.successSoft, ink: T.success },
+        ].map((k) => (
+          <View key={k.label} style={st.kpi}>
+            <View style={[st.kpiIcon, { backgroundColor: k.tint }]}>
+              <Ic d={k.icon} s={16} c={k.ink} />
+            </View>
+            <Text style={st.kpiVal}>{k.value}</Text>
+            <Text style={st.kpiLbl}>{k.label}</Text>
           </View>
         ))}
-      </AnimatedCard>
+      </FadeIn>
+
+      {/* Search */}
+      <FadeIn delay={100} style={st.searchBar}>
+        <Ic d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" s={16} c={T.muted} />
+        <TextInput
+          style={st.searchInput}
+          placeholder="Rechercher une commande ou un client…"
+          placeholderTextColor={T.muted}
+          value={search}
+          onChangeText={setSearch}
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Ic d="M18 6L6 18M6 6l12 12" s={16} c={T.muted} />
+          </TouchableOpacity>
+        )}
+      </FadeIn>
 
       {/* Filters */}
-      <AnimatedCard delay={100} style={s.filterScroll}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-          {chips.map(c => (
-            <TouchableOpacity key={c.key} style={[s.filterChip, filter === c.key && s.filterChipActive]} onPress={() => setFilter(c.key)}>
-              <Text style={[s.filterText, filter === c.key && s.filterTextActive]}>{c.label}</Text>
-            </TouchableOpacity>
-          ))}
+      <FadeIn delay={130}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow}>
+          {STATUS_FILTERS.map(f => {
+            const active = filter === f.key;
+            const meta = f.key !== 'all' ? ORDER_STATUS_META[f.key as OrderStatus] : null;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[st.chip, active && { backgroundColor: meta?.color ?? T.orange, borderColor: meta?.color ?? T.orange }]}
+                onPress={() => setFilter(f.key)}
+                activeOpacity={0.8}
+              >
+                <Text style={[st.chipText, active && { color: '#fff', fontWeight: '700' }]}>{f.label}</Text>
+                <View style={[st.chipCount, active && { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                  <Text style={[st.chipCountText, active && { color: '#fff' }]}>
+                    {f.key === 'all' ? DEMO_ORDERS.length : DEMO_ORDERS.filter(o => o.status === f.key).length}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
-      </AnimatedCard>
+      </FadeIn>
 
-      {/* Order list with improved design */}
-      <AnimatedCard delay={150} style={s.card}>
-        {filtered.map((o, i) => {
-          const sc = statusConfig[o.status];
+      {/* Orders list */}
+      <FadeIn delay={160} style={st.listCard}>
+        {filtered.length === 0 ? (
+          <View style={st.emptyBox}>
+            <Ic d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" s={32} c={T.muted} />
+            <Text style={st.emptyText}>Aucune commande trouvée</Text>
+            <Text style={st.emptySub}>Modifiez votre filtre ou lancez une nouvelle vente</Text>
+          </View>
+        ) : filtered.map((o, i) => {
+          const meta = ORDER_STATUS_META[o.status];
+          const initials = o.client.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+          const isLast = i === filtered.length - 1;
           return (
-            <TouchableOpacity 
-              key={o.id} 
-              style={[s.orderCard, i < filtered.length - 1 && s.rowBorder]} 
-              onPress={() => setSelectedOrder(o)}
+            <TouchableOpacity
+              key={o.id}
+              style={[st.row, !isLast && st.rowBorder]}
+              onPress={() => navigation.navigate('OrderDetail', { order: o })}
               activeOpacity={0.7}
             >
-              <View style={s.orderCardLeft}>
-                <View style={[s.orderAvatar, { backgroundColor: sc.color + '15' }]}>
-                  <Text style={[s.orderAvatarText, { color: sc.color }]}>{o.id.replace('#', '')}</Text>
-                </View>
-                <View style={s.orderInfo}>
-                  <View style={s.orderTopRow}>
-                    <Text style={s.orderId}>{o.id}</Text>
-                    {o.fraudRisk === 'high' && (
-                      <View style={s.fraudBadge}><Text style={s.fraudText}>⚠️</Text></View>
-                    )}
-                  </View>
-                  <Text style={s.orderClient}>{o.client}</Text>
-                  <Text style={s.orderMeta}>{o.items} article{o.items > 1 ? 's' : ''} · {o.date}</Text>
-                </View>
+              <View style={[st.avatar, { backgroundColor: meta.soft }]}>
+                <Text style={[st.avatarText, { color: meta.color }]}>{initials}</Text>
               </View>
-              <View style={s.orderCardRight}>
-                <Text style={s.orderAmount}>€{o.montant.toFixed(2)}</Text>
-                <View style={[s.statusBadge, { backgroundColor: sc.color + '15' }]}>
-                  <Text style={[s.statusText, { color: sc.color }]}>{sc.label}</Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={st.orderNum}>{o.id}</Text>
+                  {o.fraudRisk === 'high' && (
+                    <View style={st.fraudPill}>
+                      <Text style={st.fraudText}>⚠ Risque</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={st.clientName}>{o.client}</Text>
+                <Text style={st.orderMeta}>{o.items?.length ?? 1} article{(o.items?.length ?? 1) > 1 ? 's' : ''} · {o.date}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <Text style={st.amount}>{(o.montant / 1000).toFixed(0)}k F</Text>
+                <View style={[st.badge, { backgroundColor: meta.soft }]}>
+                  <Text style={[st.badgeText, { color: meta.color }]}>{meta.label}</Text>
                 </View>
               </View>
             </TouchableOpacity>
           );
         })}
-        {filtered.length === 0 && <Text style={s.emptyText}>Aucune commande dans ce filtre.</Text>}
-      </AnimatedCard>
-    </ScrollView>
+      </FadeIn>
+    </>
   );
 
-  if (isDesktop) {
-    return (
-      <View style={s.desktop}>
-        {Platform.OS !== 'web' && <Sidebar active="Orders" onNav={goTo} />}
-        {content}
-      </View>
-    );
-  }
-
   return (
-    <View style={s.mobile}>
-      <View style={s.mobileHeader}><Text style={s.mobileTitle}>Commandes</Text></View>
-      {content}
-      <BottomNavigation activeRoute="Orders" />
+    <View style={st.root}>
+      <ScrollView
+        contentContainerStyle={st.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {content}
+      </ScrollView>
+      {Platform.OS !== 'web' && <BottomNavigation activeRoute="Orders" />}
     </View>
   );
 };
 
-const s = StyleSheet.create({
-  desktop: { flex: 1, flexDirection: 'row', backgroundColor: C.bg },
-  mobile:  { flex: 1, backgroundColor: C.bg },
+const st = StyleSheet.create({
+  root:   { flex: 1, backgroundColor: T.page },
+  scroll: { padding: 16, paddingTop: Platform.OS === 'ios' ? 56 : 28, gap: 14, paddingBottom: 100 },
 
-  sidebar:        { width: 240, backgroundColor: C.accent, paddingVertical: 28, paddingHorizontal: 16 },
-  sideLogoRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, marginBottom: 32 },
-  logoMark:       { width: 32, height: 32, borderRadius: 7, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  logoMarkText:   { color: C.white, fontSize: 16, fontWeight: '800' },
-  logoName:       { fontSize: 18, fontWeight: '700', color: C.white },
-  sideSection:    { fontSize: 10, fontWeight: '700', color: C.sideMuted, letterSpacing: 1.4, paddingHorizontal: 8, marginBottom: 8 },
-  navItem:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 8, marginBottom: 2 },
-  navItemActive:  { backgroundColor: 'rgba(255,255,255,0.08)' },
-  navLabel:       { fontSize: 14, color: C.sideMuted, fontWeight: '500' },
-  navLabelActive: { color: C.white, fontWeight: '600' },
+  pageHead:  { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  pageTitle: { fontSize: 26, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
+  pageSub:   { fontSize: 13, color: T.textSub, marginTop: 3 },
+  newBtn:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.orange, paddingHorizontal: 14, height: 40, borderRadius: 11, shadowColor: T.orange, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  newBtnText:{ fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  content:     { flex: 1 },
-  inner:       { padding: 28, gap: 16, paddingBottom: 60 },
-  pageHeader:  { marginBottom: 4 },
-  pageTitle:   { fontSize: 24, fontWeight: '800', color: C.textDark, marginBottom: 3 },
-  pageSubtitle:{ fontSize: 14, color: C.textLight },
-  mobileHeader:{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
-  mobileTitle: { fontSize: 22, fontWeight: '800', color: C.textDark },
+  kpiRow: { flexDirection: 'row', gap: 10 },
+  kpi:    { flex: 1, backgroundColor: T.surface, borderRadius: radius.md, padding: 14, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: T.border, ...shadow.card },
+  kpiIcon:{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  kpiVal: { fontSize: 18, fontWeight: '800', color: T.text },
+  kpiLbl: { fontSize: 10, color: T.muted, fontWeight: '600', textAlign: 'center' },
 
-  // Header card
-  headerCard: { backgroundColor: C.surface, borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: C.border },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  addOrderBtn: { backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, shadowColor: C.accent, shadowOpacity: 0.28, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
-  addOrderBtnText: { color: C.white, fontSize: 14, fontWeight: '700' },
+  searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.surface, borderRadius: radius.md, paddingHorizontal: 14, height: 46, borderWidth: 1, borderColor: T.border },
+  searchInput: { flex: 1, fontSize: 14, color: T.text },
 
-  statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, backgroundColor: C.surface, borderRadius: 12, padding: 16, borderTopWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, alignItems: 'center' },
-  statIcon: { fontSize: 24, marginBottom: 4 },
-  statValue:{ fontSize: 20, fontWeight: '800', marginBottom: 2 },
-  statLabel:{ fontSize: 11, color: C.textLight, fontWeight: '500' },
+  filterRow: { gap: 8, paddingVertical: 2 },
+  chip:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: T.surface, borderWidth: 1.5, borderColor: T.border },
+  chipText:  { fontSize: 13, color: T.textMid, fontWeight: '500' },
+  chipCount: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: T.page },
+  chipCountText: { fontSize: 11, fontWeight: '700', color: T.textSub },
 
-  filterScroll: { flexGrow: 0 },
-  filterRow:    { gap: 8, paddingVertical: 2 },
-  filterChip:        { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border },
-  filterChipActive:  { backgroundColor: C.accent, borderColor: C.accent },
-  filterText:        { fontSize: 13, color: C.textMid, fontWeight: '500' },
-  filterTextActive:  { color: C.white, fontWeight: '600' },
+  listCard: { backgroundColor: T.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: T.border, ...shadow.card, overflow: 'hidden' },
+  row:      { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  rowBorder:{ borderBottomWidth: 1, borderBottomColor: T.divider },
+  avatar:   { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  avatarText:{ fontSize: 14, fontWeight: '800' },
+  orderNum: { fontSize: 14, fontWeight: '700', color: T.text },
+  clientName:{ fontSize: 13, color: T.textMid },
+  orderMeta: { fontSize: 12, color: T.muted },
+  amount:   { fontSize: 14, fontWeight: '800', color: T.text },
+  badge:    { paddingHorizontal: 9, paddingVertical: 3, borderRadius: radius.pill },
+  badgeText:{ fontSize: 11, fontWeight: '700' },
+  fraudPill:{ backgroundColor: '#FEF2F2', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
+  fraudText:{ fontSize: 11, fontWeight: '700', color: '#DC2626' },
 
-  card:    { backgroundColor: C.surface, borderRadius: 14, padding: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6 },
-  orderRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  rowBorder:    { borderBottomWidth: 1, borderBottomColor: C.border },
-  orderMain:    { flex: 1, gap: 3 },
-  orderTopRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  orderId:      { fontSize: 14, fontWeight: '700', color: C.textDark },
-  fraudBadge:   { backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
-  fraudText:    { fontSize: 11, fontWeight: '700', color: C.error },
-  orderClient:  { fontSize: 13, color: C.textMid },
-  orderMeta:    { fontSize: 12, color: C.muted },
-  orderRight:   { alignItems: 'flex-end', gap: 6 },
-  orderAmount:  { fontSize: 15, fontWeight: '800', color: C.textDark },
-  statusBadge:  { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
-  statusText:   { fontSize: 11, fontWeight: '600' },
-  emptyText:    { textAlign: 'center', color: C.muted, fontSize: 14, paddingVertical: 24 },
-
-  // Improved order card styles
-  orderCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: C.bg, borderRadius: 12, margin: 4 },
-  orderCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  orderAvatar: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  orderAvatarText: { fontSize: 14, fontWeight: '800' },
-  orderInfo: { flex: 1 },
-  orderCardRight: { alignItems: 'flex-end', gap: 6 },
+  emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  emptyText:{ fontSize: 16, fontWeight: '700', color: T.textMid },
+  emptySub: { fontSize: 13, color: T.muted, textAlign: 'center' },
 });
 
 export default OrdersScreen;
