@@ -10,8 +10,8 @@ import { useBoutique } from '../contexts/BoutiqueContext';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 const { width: W } = Dimensions.get('window');
-const COLS = 2;
-const PRODUCT_WIDTH = (W - 32 - 10) / COLS;
+const COLS = 4; // Compact 4-column grid
+const PRODUCT_WIDTH = (W - 48 - 30) / COLS; // Small cards
 
 const C = {
   bg: '#F9FAFB', surface: '#FFFFFF', border: '#E5E7EB',
@@ -84,27 +84,23 @@ const VendooShopScreen: React.FC = () => {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const renderProduct = ({ item: p }: { item: any }) => (
-    <View style={s.productCard}>
+    <TouchableOpacity
+      style={s.productCard}
+      onPress={() => addToCart(p)}
+      activeOpacity={0.75}
+    >
       <View style={[s.imgBox, { backgroundColor: p.couleur || C.bg }]}>
         {p.imageUri ? (
-          <Image source={{ uri: p.imageUri }} style={s.img} />
+          <Image source={{ uri: p.imageUri }} style={s.img} resizeMode="cover" />
         ) : (
           <View style={s.imgPlaceholder}>
-            <Ico d="M4 16l8-8m-8 0l8 8M20 4l-8 8m8-8l-8-8" s={28} c={C.muted} />
+            <Ico d="M4 16l8-8m-8 0l8 8M20 4l-8 8m8-8l-8-8" s={20} c={C.muted} />
           </View>
         )}
       </View>
-      <Text style={s.productName} numberOfLines={2}>{p.nom}</Text>
-      <Text style={s.productPrice}>{(p.prix / 1000).toFixed(0)}k F</Text>
-      <TouchableOpacity
-        style={s.addBtn}
-        onPress={() => addToCart(p)}
-        activeOpacity={0.8}
-      >
-        <Ico d="M12 5v14M5 12h14" s={16} c="#fff" />
-        <Text style={s.addBtnText}>Ajouter</Text>
-      </TouchableOpacity>
-    </View>
+      <Text style={s.productName} numberOfLines={1}>{p.nom}</Text>
+      <Text style={s.productPrice}>{(p.prix / 1000).toFixed(0)}k</Text>
+    </TouchableOpacity>
   );
 
   const cartItems = cart.map(ci => {
@@ -257,26 +253,24 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   content: { flex: 1 },
   banner: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border, overflow: 'hidden' },
-  bannerGradient: { height: 120, backgroundColor: C.accent + '20' },
-  shopHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, marginTop: -60, marginHorizontal: 16 },
-  logoBox: { width: 60, height: 60, borderRadius: 16, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  logoText: { color: C.surface, fontSize: 28, fontWeight: '800' },
-  shopName: { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 2 },
-  shopMeta: { fontSize: 12, color: C.textLight },
-  section: { padding: 16 },
-  sectionText: { fontSize: 14, color: C.textMid, lineHeight: 21 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, gap: 10 },
-  searchInput: { flex: 1, fontSize: 14, color: C.text },
-  productsSection: { paddingHorizontal: 16, paddingBottom: 100 },
-  grid: { gap: 10 },
-  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 5 },
-  imgBox: { width: PRODUCT_WIDTH, height: PRODUCT_WIDTH, borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
+  bannerGradient: { height: 100, backgroundColor: C.accent + '15' },
+  shopHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginTop: -50, marginHorizontal: 16 },
+  logoBox: { width: 50, height: 50, borderRadius: 12, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  logoText: { color: C.surface, fontSize: 24, fontWeight: '800' },
+  shopName: { fontSize: 18, fontWeight: '800', color: C.text },
+  shopMeta: { fontSize: 11, color: C.textLight, marginTop: 1 },
+  section: { paddingHorizontal: 16, paddingVertical: 12 },
+  sectionText: { fontSize: 13, color: C.textMid, lineHeight: 19 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, height: 40, backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, gap: 8 },
+  searchInput: { flex: 1, fontSize: 13, color: C.text },
+  productsSection: { paddingHorizontal: 12, paddingBottom: 100 },
+  grid: { gap: 8 },
+  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 2 },
+  imgBox: { width: PRODUCT_WIDTH, height: PRODUCT_WIDTH * 1.1, borderRadius: 10, overflow: 'hidden', marginBottom: 6 },
   img: { width: '100%', height: '100%' },
   imgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  productName: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 4, lineHeight: 18 },
-  productPrice: { fontSize: 14, fontWeight: '700', color: C.accent, marginBottom: 8 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.accent, paddingVertical: 10, borderRadius: 10 },
-  addBtnText: { color: C.surface, fontWeight: '700', fontSize: 13 },
+  productName: { fontSize: 11.5, fontWeight: '600', color: C.text, marginBottom: 2, lineHeight: 15 },
+  productPrice: { fontSize: 12, fontWeight: '700', color: C.accent },
   loadingBox: { height: 300, alignItems: 'center', justifyContent: 'center' },
   floatingCart: { position: 'absolute', bottom: 24, right: 16, width: 56, height: 56, borderRadius: 28, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
   cartBadge: { position: 'absolute', top: -8, right: -8, width: 28, height: 28, borderRadius: 14, backgroundColor: C.error, alignItems: 'center', justifyContent: 'center' },

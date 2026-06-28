@@ -11,8 +11,8 @@ import { useProducts } from '../contexts/ProductsContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const { width: W } = Dimensions.get('window');
-const COLS = 3;
-const PRODUCT_WIDTH = (W - 32 - (COLS - 1) * 10) / COLS;
+const COLS = 4; // Compact grid
+const PRODUCT_WIDTH = (W - 32 - (COLS - 1) * 8) / COLS;
 const IMG_SIZE = PRODUCT_WIDTH;
 
 const C = {
@@ -269,23 +269,23 @@ const s = StyleSheet.create({
   banner: { marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
   searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 14, height: 44, backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, gap: 10 },
   searchInput: { flex: 1, fontSize: 14, color: C.text },
-  grid: { padding: 16, gap: 10 },
-  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 5 },
-  imgBox: { width: IMG_SIZE, height: IMG_SIZE, borderRadius: 12, overflow: 'hidden', marginBottom: 8 },
+  grid: { padding: 12, gap: 8 },
+  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 2 },
+  imgBox: { width: IMG_SIZE, height: IMG_SIZE * 1.15, borderRadius: 10, overflow: 'hidden', marginBottom: 6 },
   img: { width: '100%', height: '100%' },
   imgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  stockBadge: { position: 'absolute', bottom: 8, left: 8, backgroundColor: C.warning, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  stockText: { fontSize: 10, fontWeight: '700', color: C.surface },
-  promoBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: C.error, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  promoText: { fontSize: 10, fontWeight: '700', color: C.surface },
-  info: { gap: 4 },
-  nom: { fontSize: 13, fontWeight: '600', color: C.text, lineHeight: 18 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  price: { fontSize: 15, fontWeight: '700', color: C.accent },
-  oldPrice: { fontSize: 11, color: C.muted, textDecorationLine: 'line-through' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  rating: { fontSize: 12, fontWeight: '600', color: C.warning },
-  avis: { fontSize: 11, color: C.muted },
+  stockBadge: { position: 'absolute', bottom: 6, left: 6, backgroundColor: C.warning, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4 },
+  stockText: { fontSize: 9, fontWeight: '700', color: C.surface },
+  promoBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: C.error, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4 },
+  promoText: { fontSize: 9, fontWeight: '700', color: C.surface },
+  info: { gap: 2 },
+  nom: { fontSize: 11.5, fontWeight: '600', color: C.text, lineHeight: 15 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  price: { fontSize: 12.5, fontWeight: '700', color: C.accent },
+  oldPrice: { fontSize: 10, color: C.muted, textDecorationLine: 'line-through' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  rating: { fontSize: 10.5, fontWeight: '600', color: C.warning },
+  avis: { fontSize: 9, color: C.muted },
   loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: C.textMid },
   emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
