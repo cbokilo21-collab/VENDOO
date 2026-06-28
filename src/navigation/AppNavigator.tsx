@@ -34,7 +34,9 @@ import BoutiqueTutorialScreen from '../screens/BoutiqueTutorialScreen';
 import BusinessDashboard    from '../screens/BusinessDashboard';
 import ProductsScreen       from '../screens/ProductsScreen';
 import OrdersScreen         from '../screens/OrdersScreen';
+import OrderDetailScreen    from '../screens/OrderDetailScreen';
 import CustomersScreen      from '../screens/CustomersScreen';
+import CustomerDetailScreen from '../screens/CustomerDetailScreen';
 import SettingsScreen       from '../screens/SettingsScreen';
 
 // Tools
@@ -82,7 +84,9 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="BusinessDashboard"  component={withWebShell(BusinessDashboard,  'BusinessDashboard')} />
             <Stack.Screen name="Products"           component={withWebShell(ProductsScreen,      'Products')} />
             <Stack.Screen name="Orders"             component={withWebShell(OrdersScreen,        'Orders')} />
+            <Stack.Screen name="OrderDetail"        component={withWebShell(OrderDetailScreen,   'Orders')} />
             <Stack.Screen name="Customers"          component={withWebShell(CustomersScreen,     'Customers')} />
+            <Stack.Screen name="CustomerDetail"     component={withWebShell(CustomerDetailScreen,'Customers')} />
             <Stack.Screen name="Settings"           component={withWebShell(SettingsScreen,      'Settings')} />
 
             {/* ── Boutique tools ─────────────────────────────────────── */}

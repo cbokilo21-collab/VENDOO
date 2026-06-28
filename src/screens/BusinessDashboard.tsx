@@ -13,6 +13,14 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import BottomNavigation from '../components/BottomNavigation';
 import { T, shadow } from '../theme';
+import { useAuth } from '../contexts/AuthContext';
+import { useBoutique } from '../contexts/BoutiqueContext';
+import { useDashboardKPIs } from '../hooks/useRealtimeData';
+
+const fmtF = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} M F` :
+  n >= 1_000     ? `${(n / 1_000).toFixed(0)} k F`     :
+  `${Math.round(n)} F`;
 
 const isWeb = Platform.OS === 'web';
 type Nav = NativeStackNavigationProp<any>;
@@ -79,6 +87,13 @@ const Sparkline: React.FC<{ h:number }> = ({ h }) => {
   );
 };
 
+const notifColorForStatus = (status?:string) =>
+  status==='paid' || status==='delivered' ? { status:'Payé',        color:T.success, soft:T.successSoft } :
+  status==='processing'                   ? { status:'Préparation', color:T.warning, soft:T.warningSoft } :
+  status==='shipped'                      ? { status:'Expédié',     color:T.info,    soft:T.infoSoft    } :
+  status==='cancelled' || status==='refunded' ? { status:'Annulé',  color:T.error,   soft:T.errorSoft   } :
+                                            { status:'En attente',  color:T.warning, soft:T.warningSoft };
+
 const notifMeta = (type:string) =>
   type==='order'   ? { c:T.info,    soft:T.infoSoft,    d:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2' } :
   type==='payment' ? { c:T.success, soft:T.successSoft, d:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' } :
@@ -87,14 +102,40 @@ const notifMeta = (type:string) =>
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const BusinessDashboard: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
+  const { boutiqueData } = useBoutique();
+  const live = useDashboardKPIs(user?.uid ?? null);
   const [showNotifs, setShowNotifs] = useState(false);
   const [readNotifs, setReadNotifs] = useState<Set<number>>(new Set());
   const [period, setPeriod] = useState<'Jour'|'Semaine'|'Mois'>('Mois');
+
+  // Live data drives the dashboard; demo constants fill in until Firestore has rows.
+  const hasLiveOrders = live.totalOrders > 0;
 
   const greeting = (() => {
     const h = new Date().getHours();
     return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   })();
+  const ownerName = (user?.displayName || user?.email?.split('@')[0] || 'Cyril')
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+  // KPI values: prefer live aggregates, fall back to the demo snapshot.
+  const kpiData = [
+    { ...KPIS[0], value: hasLiveOrders ? String(live.totalOrders) : KPIS[0].value },
+    { ...KPIS[1], value: live.totalCustomers > 0 ? live.totalCustomers.toLocaleString('fr-FR') : KPIS[1].value },
+    { ...KPIS[2], value: live.totalProducts > 0 ? String(live.totalProducts) : KPIS[2].value,
+      sub: live.totalProducts > 0 ? `${live.lowStockProducts.length} en stock faible` : KPIS[2].sub },
+    { ...KPIS[3], value: hasLiveOrders ? fmtF(live.avgCart) : KPIS[3].value },
+  ];
+  const revenueValue = hasLiveOrders ? fmtF(live.totalRevenue) : '24 850 000 F';
+  const liveOrders = hasLiveOrders
+    ? live.recentOrders.map((o: any) => ({
+        id: o.orderNumber ?? `#${o.id?.slice(0, 4)}`,
+        name: o.client ?? o.customerName ?? 'Client',
+        amt: fmtF(o.total ?? 0),
+        ...notifColorForStatus(o.status),
+      }))
+    : ORDERS;
 
   const unread = NOTIFS.length - readNotifs.size;
   const handleLogout = async () => { try { await signOut(auth); } catch {} };
@@ -106,9 +147,9 @@ const BusinessDashboard: React.FC = () => {
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <View style={d.pageHead}>
         <View style={{ flex: 1 }}>
-          <Text style={d.greet}>{greeting}, Cyril 👋</Text>
+          <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
           <Text style={d.pageTitle}>Tableau de bord</Text>
-          <Text style={d.pageSub}>Ma boutique Vendoo · aperçu en temps réel</Text>
+          <Text style={d.pageSub}>{boutiqueData.nom || 'Ma boutique'} · aperçu en temps réel</Text>
         </View>
         <View style={d.headActions}>
           <View>
@@ -153,7 +194,7 @@ const BusinessDashboard: React.FC = () => {
           <View>
             <Text style={d.revLabel}>Chiffre d'affaires · ce mois</Text>
             <View style={d.revAmtRow}>
-              <Text style={d.revAmt}>24 850 000 F</Text>
+              <Text style={d.revAmt}>{revenueValue}</Text>
               <View style={d.trendChip}>
                 <Ic d="M3 17l6-6 4 4 8-8M21 7h-6M21 7v6" s={12} c={T.success} w={2.4}/>
                 <Text style={d.trendTxt}>12.5%</Text>
@@ -177,7 +218,7 @@ const BusinessDashboard: React.FC = () => {
 
       {/* ── KPI grid ─────────────────────────────────────────────────────── */}
       <View style={d.kpiRow}>
-        {KPIS.map(k => (
+        {kpiData.map(k => (
           <View key={k.label} style={d.kpiCard}>
             <View style={d.kpiTop}>
               <View style={[d.kpiIcon, { backgroundColor:k.tint }]}><Ic d={k.icon} s={18} c={k.ink} w={2}/></View>
@@ -229,9 +270,9 @@ const BusinessDashboard: React.FC = () => {
               <Text style={d.seeAll}>Voir tout →</Text>
             </TouchableOpacity>
           </View>
-          {ORDERS.map((o, i) => (
-            <View key={o.id} style={[d.orderRow, i === ORDERS.length-1 && { borderBottomWidth:0, paddingBottom:0 }]}>
-              <View style={d.oAvatar}><Text style={d.oAvatarTxt}>{o.name.split(' ').map(s=>s[0]).join('')}</Text></View>
+          {liveOrders.map((o, i) => (
+            <View key={`${o.id}-${i}`} style={[d.orderRow, i === liveOrders.length-1 && { borderBottomWidth:0, paddingBottom:0 }]}>
+              <View style={d.oAvatar}><Text style={d.oAvatarTxt}>{o.name.split(' ').map((s:string)=>s[0]).join('')}</Text></View>
               <View style={{ flex:1 }}>
                 <Text style={d.oName}>{o.name}</Text>
                 <Text style={d.oId}>{o.id}</Text>

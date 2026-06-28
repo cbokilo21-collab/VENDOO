@@ -173,7 +173,12 @@ const CustomersScreen: React.FC = () => {
           const seg = segmentConfig[c.segment];
           const avatarColor = avatarColors[parseInt(c.id) % avatarColors.length];
           return (
-            <View key={c.id} style={[s.customerRow, i < filtered.length - 1 && s.rowBorder]}>
+            <TouchableOpacity
+              key={c.id}
+              style={[s.customerRow, i < filtered.length - 1 && s.rowBorder]}
+              onPress={() => navigation.navigate('CustomerDetail' as any, { customer: c })}
+              activeOpacity={0.7}
+            >
               <View style={[s.avatar, { backgroundColor: avatarColor }]}>
                 <Text style={s.avatarText}>{c.nom[0]}</Text>
               </View>
@@ -198,7 +203,7 @@ const CustomersScreen: React.FC = () => {
                   <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round"/>
                 </Svg>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           );
         })}
         {filtered.length === 0 && <Text style={s.emptyText}>Aucun client trouvé.</Text>}

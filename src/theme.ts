@@ -124,6 +124,7 @@ export const radius = {
   lg:     16,
   xl:     20,
   '2xl':  24,
+  pill:   9999,   // alias of `full` for backward compatibility
   full:   9999,
 } as const;
 
@@ -177,6 +178,13 @@ export const shadows = {
     shadowRadius: 40,
     shadowOffset: { width: 0, height: 25 },
   },
+} as const;
+
+// ── Backward-compatible elevation aliases ──────────────────────────────────
+// Older screens import `{ shadow }` and use `shadow.card` / `shadow.pop`.
+export const shadow = {
+  card: shadows.base,
+  pop:  shadows.lg,
 } as const;
 
 // ── Animations & Transitions ───────────────────────────────────────────────
