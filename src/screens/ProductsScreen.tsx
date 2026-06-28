@@ -9,6 +9,10 @@ import BottomNavigation from '../components/BottomNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useProducts } from '../contexts/ProductsContext';
 import { useAuth } from '../contexts/AuthContext';
+import { StorageService } from '../services/storageService';
+
+const CATEGORIES = ['Vêtements', 'Chaussures', 'Accessoires', 'Électronique', 'Maison', 'Autre'];
+const PRODUCT_COLORS = ['#FEE2E2', '#DBEAFE', '#D1FAE5', '#FEF3C7', '#EDE9FE', '#FCE7F3'];
 
 const { width: W } = Dimensions.get('window');
 const COLS = 4; // Compact grid
@@ -40,7 +44,7 @@ interface Product {
 const ProductsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
-  const { products, loading, error, updateProduct, removeProduct } = useProducts();
+  const { products, loading, error, addProduct, updateProduct, removeProduct } = useProducts();
   const [search, setSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -48,9 +52,78 @@ const ProductsScreen: React.FC = () => {
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
 
+  // Create-product modal state
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [newStock, setNewStock] = useState('');
+  const [newCategory, setNewCategory] = useState(CATEGORIES[0]);
+  const [newImageUri, setNewImageUri] = useState('');
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const filtered = products.filter(p =>
     p.nom.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Pick an image via the web file picker; keep a local preview + the File for upload.
+  const pickImage = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: any) => {
+      const file: File | undefined = e.target?.files?.[0];
+      if (file) {
+        setNewImageFile(file);
+        setNewImageUri(URL.createObjectURL(file));
+      }
+    };
+    input.click();
+  };
+
+  const resetAddForm = () => {
+    setNewName(''); setNewPrice(''); setNewStock('');
+    setNewCategory(CATEGORIES[0]); setNewImageUri(''); setNewImageFile(null);
+  };
+
+  const handleCreate = async () => {
+    if (!newName.trim()) {
+      Alert.alert('Nom requis', 'Donnez un nom au produit.');
+      return;
+    }
+    const prix = parseInt(newPrice) || 0;
+    const stock = parseInt(newStock) || 0;
+    setSaving(true);
+    try {
+      const couleur = PRODUCT_COLORS[Math.floor(Math.random() * PRODUCT_COLORS.length)];
+      // Create the product first to get its id, then attach the uploaded image.
+      const docId = await addProduct({
+        boutique_id: '',
+        nom: newName.trim(),
+        prix,
+        stock,
+        categorie: newCategory,
+        couleur,
+        isNew: true,
+      } as any);
+
+      if (newImageUri && user?.uid) {
+        try {
+          const url = await StorageService.uploadProductImage(user.uid, docId, newImageUri);
+          await updateProduct(docId, { imageUri: url });
+        } catch (imgErr) {
+          console.warn('Image upload failed, product saved without image:', imgErr);
+        }
+      }
+      resetAddForm();
+      setShowAdd(false);
+    } catch (err) {
+      Alert.alert('Erreur', "Impossible de créer le produit. Réessayez.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const openEdit = (p: Product) => {
     setSelectedProduct(p);
@@ -135,7 +208,7 @@ const ProductsScreen: React.FC = () => {
           <Text style={s.title}>Produits</Text>
           <Text style={s.sub}>{filtered.length} article{filtered.length !== 1 ? 's' : ''}</Text>
         </View>
-        <TouchableOpacity style={s.addBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={s.addBtn} activeOpacity={0.8} onPress={() => { resetAddForm(); setShowAdd(true); }}>
           <Ico d="M12 5v14M5 12h14" s={18} c="#fff" />
         </TouchableOpacity>
       </View>
@@ -170,6 +243,10 @@ const ProductsScreen: React.FC = () => {
           <Ico d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" s={40} c={C.muted} />
           <Text style={s.emptyText}>Aucun produit</Text>
           <Text style={s.emptySub}>Créez votre premier produit</Text>
+          <TouchableOpacity style={s.emptyCta} activeOpacity={0.85} onPress={() => { resetAddForm(); setShowAdd(true); }}>
+            <Ico d="M12 5v14M5 12h14" s={16} c="#fff" />
+            <Text style={s.emptyCtaText}>Ajouter un produit</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -255,6 +332,99 @@ const ProductsScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* Create-product modal */}
+      <Modal visible={showAdd} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Nouveau produit</Text>
+              <TouchableOpacity onPress={() => setShowAdd(false)}>
+                <Ico d="M18 6L6 18M6 6l12 12" s={24} c={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={s.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Image picker */}
+              <TouchableOpacity style={s.imagePicker} onPress={pickImage} activeOpacity={0.8}>
+                {newImageUri ? (
+                  <Image source={{ uri: newImageUri }} style={s.imagePickerPreview} />
+                ) : (
+                  <View style={s.imagePickerEmpty}>
+                    <Ico d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.66-.9l.82-1.2A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" s={28} c={C.muted} />
+                    <Text style={s.imagePickerText}>Ajouter une photo</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <View style={s.field}>
+                <Text style={s.label}>Nom *</Text>
+                <TextInput
+                  style={s.input}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Ex: T-shirt coton"
+                  placeholderTextColor={C.muted}
+                />
+              </View>
+
+              <View style={s.fieldRow}>
+                <View style={[s.field, { flex: 1 }]}>
+                  <Text style={s.label}>Prix (F)</Text>
+                  <TextInput
+                    style={s.input}
+                    value={newPrice}
+                    onChangeText={setNewPrice}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={C.muted}
+                  />
+                </View>
+                <View style={[s.field, { flex: 1 }]}>
+                  <Text style={s.label}>Stock</Text>
+                  <TextInput
+                    style={s.input}
+                    value={newStock}
+                    onChangeText={setNewStock}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={C.muted}
+                  />
+                </View>
+              </View>
+
+              <View style={s.field}>
+                <Text style={s.label}>Catégorie</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {CATEGORIES.map(cat => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[s.catChip, newCategory === cat && s.catChipActive]}
+                      onPress={() => setNewCategory(cat)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[s.catChipText, newCategory === cat && s.catChipTextActive]}>{cat}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <TouchableOpacity
+                style={[s.createBtn, saving && { opacity: 0.6 }]}
+                onPress={handleCreate}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={s.createBtnText}>Créer le produit</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {Platform.OS !== 'web' && <BottomNavigation activeRoute="Products" />}
     </View>
   );
@@ -291,6 +461,8 @@ const s = StyleSheet.create({
   emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyText: { fontSize: 16, fontWeight: '700', color: C.textMid },
   emptySub: { fontSize: 13, color: C.muted },
+  emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accent, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, marginTop: 8 },
+  emptyCtaText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   modalContent: { width: '90%', maxWidth: 500, backgroundColor: C.surface, borderRadius: 16, overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border },
@@ -303,6 +475,18 @@ const s = StyleSheet.create({
   fieldRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
   actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   actionText: { color: C.surface, fontWeight: '700', fontSize: 14 },
+
+  // Create-product modal
+  imagePicker: { width: '100%', height: 180, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed', overflow: 'hidden', marginBottom: 18, backgroundColor: C.bg },
+  imagePickerPreview: { width: '100%', height: '100%' },
+  imagePickerEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  imagePickerText: { fontSize: 13, fontWeight: '600', color: C.textLight },
+  catChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
+  catChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+  catChipText: { fontSize: 13, fontWeight: '600', color: C.textMid },
+  catChipTextActive: { color: '#fff' },
+  createBtn: { backgroundColor: C.accent, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8, marginBottom: 8 },
+  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
 
 export default ProductsScreen;
