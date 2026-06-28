@@ -6,7 +6,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
-import Svg, { Path, Circle, Rect, Ellipse, G, Line, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Path, Circle, Rect, Ellipse, G, Line, Text as SvgText,
+  Defs, LinearGradient as SvgGrad, Stop, Polygon, RadialGradient,
+} from 'react-native-svg';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -142,74 +145,255 @@ const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?
   );
 };
 
-// ─── SVG Façade par niveau ────────────────────────────────────────────────────
-const Facade: React.FC<{ b: Boutique; selected: boolean; onPress: () => void }> = ({ b, selected, onPress }) => {
-  const W = 90, H = 110;
-  const c = b.couleur, a = b.accentC;
-  const signBg   = 'rgba(0,0,0,0.82)';
-  const signText = '#FFFFFF';
-  const bois  = '#8B5E3C';
-  const boisD = '#5C3A1E';
-  const boisL = '#A97850';
+// ─── Colour helpers ───────────────────────────────────────────────────────────
+const shade = (hex: string, pct: number) => {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  const n = parseInt(h, 16);
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  const r = clamp((n >> 16) * (1 + pct));
+  const g = clamp(((n >> 8) & 0xff) * (1 + pct));
+  const b = clamp((n & 0xff) * (1 + pct));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+};
 
-  const renderFacade = () => {
-    if (b.niveau === 1) return (
-      <G>
-        <Rect x="10" y="40" width="100" height="90" rx="8" fill={c}/>
-        <Rect x="10" y="40" width="100" height="25" rx="8" fill="rgba(0,0,0,0.25)"/>
-        <Rect x="10" y="55" width="100" height="10" fill="rgba(0,0,0,0.25)"/>
-        <Rect x="20" y="70" width="80" height="35" rx="4" fill="rgba(200,230,255,0.4)"/>
-        <Rect x="22" y="72" width="76" height="31" rx="3" fill="rgba(180,210,240,0.3)"/>
-        <Path d="M25 75 L35 72" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round"/>
-        <Rect x="15" y="105" width="90" height="18" rx="4" fill="#2D3748"/>
-        <Rect x="15" y="42" width="90" height="20" rx="4" fill={signBg} stroke={a} strokeWidth="2"/>
-        <SvgText x="60" y="55" fontSize="11" fill={signText} textAnchor="middle" fontWeight="bold">{b.emoji}</SvgText>
+// ─── Street backdrop (sky · sun/moon · road · sidewalk) ────────────────────────
+const SceneBackdrop: React.FC<{ width: number; height: number; night: boolean }> = ({ width, height, night }) => {
+  const roadH = 56;
+  const walkH = 30;
+  const roadY = height - roadH;
+  const walkY = roadY - walkH;
+  const dashes = Math.ceil(width / 38) + 1;
+
+  return (
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+      <Defs>
+        <SvgGrad id="sky" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={night ? '#0B1026' : '#BFE0FF'} />
+          <Stop offset="1" stopColor={night ? '#26244B' : '#EAF6FF'} />
+        </SvgGrad>
+        <RadialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+          <Stop offset="0" stopColor={night ? '#FDFCEF' : '#FFF6C8'} stopOpacity="1" />
+          <Stop offset="1" stopColor={night ? '#FDFCEF' : '#FFE07A'} stopOpacity="0" />
+        </RadialGradient>
+        <SvgGrad id="walk" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={night ? '#3A4159' : '#EEF1F5'} />
+          <Stop offset="1" stopColor={night ? '#2B3147' : '#DDE3EA'} />
+        </SvgGrad>
+        <SvgGrad id="road" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={night ? '#1A1F30' : '#3A4150'} />
+          <Stop offset="1" stopColor={night ? '#11151F' : '#2A303B'} />
+        </SvgGrad>
+      </Defs>
+
+      {/* Sky */}
+      <Rect x="0" y="0" width={width} height={height} fill="url(#sky)" />
+
+      {/* Sun / Moon glow */}
+      <Circle cx={width - 64} cy={64} r={70} fill="url(#sun)" />
+      <Circle cx={width - 64} cy={64} r={24} fill={night ? '#EAEAF2' : '#FFD45E'} />
+      {night && <Circle cx={width - 54} cy={58} r={20} fill="#26244B" />}
+
+      {/* Stars (night) */}
+      {night && [...Array(14)].map((_, i) => (
+        <Circle key={i} cx={(i * 53) % (width - 20) + 10} cy={(i * 37) % 90 + 16}
+          r={i % 3 === 0 ? 1.6 : 1} fill="#FFFFFF" opacity={0.85} />
+      ))}
+
+      {/* Clouds (day) */}
+      {!night && [[40, 50], [width * 0.42, 38], [width * 0.7, 70]].map(([cx, cy], i) => (
+        <G key={i} opacity={0.9}>
+          <Ellipse cx={cx} cy={cy} rx={26} ry={13} fill="#FFFFFF" />
+          <Ellipse cx={cx + 22} cy={cy + 4} rx={20} ry={11} fill="#FFFFFF" />
+          <Ellipse cx={cx - 20} cy={cy + 5} rx={16} ry={9} fill="#F4F9FF" />
+        </G>
+      ))}
+
+      {/* Distant skyline silhouette */}
+      <G opacity={night ? 0.5 : 0.28}>
+        {[...Array(Math.ceil(width / 46))].map((_, i) => {
+          const bw = 38, bx = i * 46 + 4;
+          const bh = 40 + ((i * 53) % 46);
+          return <Rect key={i} x={bx} y={walkY - bh} width={bw} height={bh} rx={3}
+            fill={night ? '#171B33' : '#9DB7CF'} />;
+        })}
       </G>
-    );
-    if (b.niveau === 2) return (
-      <G>
-        <Rect x="5" y="30" width="110" height="100" rx="6" fill={c}/>
-        <Rect x="5" y="30" width="110" height="28" rx="6" fill="rgba(0,0,0,0.2)"/>
-        <Rect x="8" y="33" width="104" height="22" rx="4" fill={signBg} stroke={a} strokeWidth="2"/>
-        <SvgText x="60" y="47" fontSize="11" fill={signText} textAnchor="middle" fontWeight="bold">{b.emoji} {b.nom.substring(0,6)}</SvgText>
-        <Rect x="15" y="62" width="35" height="28" rx="3" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="70" y="62" width="35" height="28" rx="3" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="15" y="95" width="35" height="28" rx="3" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="70" y="95" width="35" height="28" rx="3" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="15" y="125" width="90" height="5" rx="2" fill={boisD}/>
-      </G>
-    );
+
+      {/* Sidewalk */}
+      <Rect x="0" y={walkY} width={width} height={walkH} fill="url(#walk)" />
+      <Line x1="0" y1={walkY + 1} x2={width} y2={walkY + 1} stroke={night ? '#535C7A' : '#FFFFFF'} strokeWidth="1.5" opacity={0.6} />
+      {/* Sidewalk seams */}
+      {[...Array(Math.ceil(width / 46))].map((_, i) => (
+        <Line key={i} x1={i * 46} y1={walkY} x2={i * 46} y2={walkY + walkH}
+          stroke={night ? '#3F465F' : '#CFD6DE'} strokeWidth="1" opacity={0.6} />
+      ))}
+
+      {/* Road */}
+      <Rect x="0" y={roadY} width={width} height={roadH} fill="url(#road)" />
+      {/* Centre dashes */}
+      {[...Array(dashes)].map((_, i) => (
+        <Rect key={i} x={i * 38 + 6} y={roadY + roadH / 2 - 2} width={20} height={4} rx={2}
+          fill={night ? '#C9A53A' : '#F4C430'} opacity={0.9} />
+      ))}
+    </Svg>
+  );
+};
+
+// ─── SVG Façade — polished storefront ──────────────────────────────────────────
+const Facade: React.FC<{ b: Boutique; selected: boolean; night: boolean; onPress: () => void }> = ({ b, selected, night, onPress }) => {
+  const W = 132, H = 176;
+  const uid = b.id;
+  const c = b.couleur;
+  const cDark = shade(c, -0.32);
+  const cLight = shade(c, 0.22);
+  const signBg = '#1A1430';
+  const open = b.statut === 'ouvert';
+
+  // Window glow: warm at night, cool reflective by day
+  const winTop = night ? '#FFE6A6' : '#CFE9FF';
+  const winBot = night ? '#FFC24D' : '#9FCDF2';
+  const winOp = night ? 1 : 0.92;
+
+  const groundShadow = (
+    <Ellipse cx={W / 2} cy={H - 8} rx={56} ry={9} fill="rgba(0,0,0,0.18)" />
+  );
+
+  // Striped awning generator
+  const Awning = ({ x, y, w, scale = 1 }: { x: number; y: number; w: number; scale?: number }) => {
+    const stripes = Math.round(w / 16);
+    const sw = w / stripes;
+    const flapH = 12 * scale;
     return (
       <G>
-        <Rect x="0" y="20" width="120" height="110" rx="4" fill={c}/>
-        <Rect x="0" y="20" width="120" height="30" rx="4" fill="rgba(0,0,0,0.15)"/>
-        <Rect x="3" y="23" width="114" height="24" rx="4" fill={signBg} stroke={a} strokeWidth="2"/>
-        <SvgText x="60" y="39" fontSize="12" fill={signText} textAnchor="middle" fontWeight="bold">{b.emoji} {b.nom.substring(0,8)}</SvgText>
-        <Rect x="10" y="55" width="30" height="25" rx="2" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="45" y="55" width="30" height="25" rx="2" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="80" y="55" width="30" height="25" rx="2" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="10" y="85" width="30" height="25" rx="2" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="45" y="85" width="30" height="25" rx="2" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="80" y="85" width="30" height="25" rx="2" fill="rgba(200,230,255,0.5)"/>
-        <Rect x="45" y="115" width="30" height="15" rx="2" fill={boisD}/>
-        <Path d="M20 115 L20 130 M100 115 L100 130" stroke={boisD} strokeWidth="4"/>
+        <Rect x={x} y={y} width={w} height={10 * scale} fill={cDark} rx={2} />
+        {[...Array(stripes)].map((_, i) => (
+          <Rect key={i} x={x + i * sw} y={y} width={sw} height={10 * scale}
+            fill={i % 2 === 0 ? c : '#FFFFFF'} opacity={0.96} />
+        ))}
+        {/* Scalloped flap */}
+        {[...Array(stripes)].map((_, i) => (
+          <Path key={i}
+            d={`M${x + i * sw} ${y + 10 * scale} L${x + i * sw + sw} ${y + 10 * scale} L${x + i * sw + sw / 2} ${y + 10 * scale + flapH} Z`}
+            fill={i % 2 === 0 ? c : '#FFFFFF'} opacity={0.96} />
+        ))}
       </G>
     );
   };
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ marginRight: 12 }}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ marginRight: 14, alignItems: 'center' }}>
       <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-        {renderFacade()}
+        <Defs>
+          <SvgGrad id={`wall-${uid}`} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={cLight} />
+            <Stop offset="0.5" stopColor={c} />
+            <Stop offset="1" stopColor={cDark} />
+          </SvgGrad>
+          <SvgGrad id={`win-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={winTop} stopOpacity={winOp} />
+            <Stop offset="1" stopColor={winBot} stopOpacity={winOp} />
+          </SvgGrad>
+        </Defs>
+
+        {groundShadow}
+
+        {/* Building body */}
+        <Rect x="12" y="44" width="108" height="120" rx="7" fill={`url(#wall-${uid})`} />
+        {/* Right-side depth shade */}
+        <Rect x="104" y="44" width="16" height="120" rx="7" fill="rgba(0,0,0,0.12)" />
+        {/* Cornice */}
+        <Rect x="8" y="40" width="116" height="10" rx="4" fill={cDark} />
+
+        {/* Sign board */}
+        <Rect x="16" y="20" width="100" height="22" rx="5" fill={signBg} />
+        <Rect x="16" y="20" width="100" height="22" rx="5" fill="none" stroke={c} strokeWidth="2" />
+        {night && <Rect x="14" y="18" width="104" height="26" rx="6" fill={c} opacity={0.18} />}
+        <SvgText x={W / 2} y="35" fontSize="11" fill="#FFFFFF" textAnchor="middle" fontWeight="bold">
+          {b.emoji} {b.nom.length > 9 ? b.nom.slice(0, 9) + '…' : b.nom}
+        </SvgText>
+
+        {/* Awning */}
+        <Awning x={16} y={52} w={100} />
+
+        {/* Display windows (warm/cool glow) */}
+        <Rect x="20" y="80" width="42" height="44" rx="4" fill={`url(#win-${uid})`} />
+        <Rect x="70" y="80" width="42" height="44" rx="4" fill={`url(#win-${uid})`} />
+        {/* Window frames */}
+        <Rect x="20" y="80" width="42" height="44" rx="4" fill="none" stroke={cDark} strokeWidth="2" />
+        <Rect x="70" y="80" width="42" height="44" rx="4" fill="none" stroke={cDark} strokeWidth="2" />
+        {/* Reflection streaks */}
+        <Path d="M26 84 L34 84 L24 110 L16 110 Z" fill="#FFFFFF" opacity={night ? 0.12 : 0.28} />
+        <Path d="M76 84 L84 84 L74 110 L66 110 Z" fill="#FFFFFF" opacity={night ? 0.12 : 0.28} />
+
+        {/* Door */}
+        <Rect x="54" y="126" width="24" height="38" rx="3" fill={cDark} />
+        <Rect x="57" y="130" width="18" height="30" rx="2" fill={`url(#win-${uid})`} opacity={0.85} />
+        <Circle cx="72" cy="146" r="1.8" fill="#FFE082" />
+
+        {/* Open / closed door sign */}
+        <Rect x="58" y="134" width="16" height="7" rx="2" fill={open ? '#16A34A' : '#DC2626'} />
+        <SvgText x="66" y="139.6" fontSize="4.6" fill="#FFFFFF" textAnchor="middle" fontWeight="bold">
+          {open ? 'OPEN' : 'FERMÉ'}
+        </SvgText>
+
+        {/* Potted plants (level 3+) */}
+        {b.niveau >= 3 && (
+          <G>
+            <Rect x="24" y="150" width="12" height="14" rx="2" fill={cDark} />
+            <Circle cx="27" cy="148" r="5" fill="#34C759" />
+            <Circle cx="33" cy="148" r="5" fill="#2EA84B" />
+            <Rect x="96" y="150" width="12" height="14" rx="2" fill={cDark} />
+            <Circle cx="99" cy="148" r="5" fill="#34C759" />
+            <Circle cx="105" cy="148" r="5" fill="#2EA84B" />
+          </G>
+        )}
+
+        {/* String lights at night (level 4) */}
+        {night && b.niveau >= 4 && (
+          <G>
+            <Path d="M12 50 Q66 60 120 50" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none" />
+            {[20, 40, 60, 80, 100].map((x, i) => (
+              <Circle key={i} cx={x} cy={54 + Math.sin(i) * 2} r={2.4}
+                fill={['#FFD54F', '#FF8A5C', '#FFFFFF'][i % 3]} opacity={0.95} />
+            ))}
+          </G>
+        )}
+
+        {/* Selection ring */}
         {selected && (
-          <Circle cx={W/2} cy={H/2} r={W/2 + 5} fill="none" stroke={C.accent} strokeWidth={3} strokeDasharray="6 4" />
+          <Rect x="6" y="16" width="120" height="152" rx="12" fill="none"
+            stroke={C.accent} strokeWidth="3" strokeDasharray="7 5" />
         )}
       </Svg>
-      <Text style={{ fontSize: 11, fontWeight: '700', color: C.textDark, textAlign: 'center', marginTop: 4 }}>{b.nom}</Text>
-      <Text style={{ fontSize: 9, color: C.textLight, textAlign: 'center' }}>{b.secteur}</Text>
+
+      {/* Rating + status pill under the storefront */}
+      <View style={fc.nameRow}>
+        <Text style={[fc.name, night && { color: '#F1F5F9' }]} numberOfLines={1}>{b.nom}</Text>
+      </View>
+      <View style={fc.metaRow}>
+        {b.note > 0 && (
+          <View style={fc.ratingPill}>
+            <Text style={fc.ratingStar}>★</Text>
+            <Text style={fc.ratingTxt}>{b.note.toFixed(1)}</Text>
+          </View>
+        )}
+        <View style={[fc.statusDot, { backgroundColor: open ? C.success : '#94A3B8' }]} />
+        <Text style={[fc.statusTxt, night && { color: '#CBD5E1' }]}>{open ? 'Ouvert' : 'Fermé'}</Text>
+      </View>
     </TouchableOpacity>
   );
 };
+
+const fc = StyleSheet.create({
+  nameRow:    { marginTop: 6, maxWidth: 124 },
+  name:       { fontSize: 12, fontWeight: '800', color: C.textDark, textAlign: 'center' },
+  metaRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 10 },
+  ratingStar: { fontSize: 9, color: '#F59E0B' },
+  ratingTxt:  { fontSize: 10, fontWeight: '800', color: '#B45309' },
+  statusDot:  { width: 6, height: 6, borderRadius: 3 },
+  statusTxt:  { fontSize: 10, fontWeight: '600', color: C.textLight },
+});
 
 // ─── Boutique detail modal ────────────────────────────────────────────────────
 const BoutiqueModal: React.FC<{ b: Boutique | null; onClose: () => void }> = ({ b, onClose }) => {
@@ -414,11 +598,12 @@ const QuartierScreen: React.FC = () => {
       </View>
 
       {/* ── Street scene ─────────────────────────────────────────────── */}
-      <View style={[s.streetScene, { backgroundColor: groundCol }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.boutiqueRow}
+      <View style={s.streetScene}>
+        <SceneBackdrop width={SW} height={SH - 200} night={time === 'nuit'} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.boutiqueScroll} contentContainerStyle={s.boutiqueRow}
           keyboardShouldPersistTaps="handled">
           {filtred.map(b => (
-            <Facade key={b.id} b={b} selected={selected?.id === b.id} onPress={() => setSelected(b)} />
+            <Facade key={b.id} b={b} selected={selected?.id === b.id} night={time === 'nuit'} onPress={() => setSelected(b)} />
           ))}
         </ScrollView>
 
@@ -504,9 +689,10 @@ const s = StyleSheet.create({
   filterChipActiveNight: { backgroundColor: C.accent, borderColor: C.accent },
   filterText: { fontSize: 13, color: C.textMid, fontWeight: '500' },
   filterTextActive: { color: C.white, fontWeight: '600' },
-  streetScene: { flex: 1, marginTop: 200, paddingTop: 20 },
-  boutiqueRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 8, paddingBottom: 20 },
-  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  streetScene: { flex: 1, marginTop: 200, overflow: 'hidden' },
+  boutiqueScroll: { position: 'absolute', left: 0, right: 0, bottom: 44, top: 16 },
+  boutiqueRow: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, gap: 10, minWidth: '100%' },
+  emptyState: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyIcon: { fontSize: 48 },
   emptyText: { fontSize: 16, color: C.textMid, fontWeight: '500' },
 });
