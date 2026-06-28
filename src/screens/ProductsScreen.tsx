@@ -274,13 +274,54 @@ const ProductCard: React.FC<{ p: Product; onPress: () => void; liked: boolean; o
 // ─── Buy Bottom Sheet ──────────────────────────────────────────────────────────
 const BuySheet: React.FC<{
   product: Product | null; onClose: () => void; onAddToCart: (item: CartItem) => void;
-}> = ({ product, onClose, onAddToCart }) => {
+  onUpdate?: (id: string, updates: Partial<Product>) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}> = ({ product, onClose, onAddToCart, onUpdate, onDelete }) => {
   const slideY = useRef(new Animated.Value(H)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const [qty, setQty] = useState(1);
   const [selSize, setSelSize] = useState<string | null>(null);
   const [selColor, setSelColor] = useState<string | null>(null);
-  const [tab, setTab] = useState<'buy' | 'info'>('buy');
+  const [tab, setTab] = useState<'buy' | 'info' | 'manage'>('buy');
+  const [busy, setBusy] = useState(false);
+
+  const adjustStock = async (delta: number) => {
+    if (!product || !onUpdate) return;
+    const next = Math.max(0, product.stock + delta);
+    setBusy(true);
+    try { await onUpdate(product.id, { stock: next }); }
+    catch { Alert.alert('Erreur', 'Mise à jour du stock impossible.'); }
+    finally { setBusy(false); }
+  };
+
+  const togglePromo = async () => {
+    if (!product || !onUpdate) return;
+    setBusy(true);
+    try {
+      if (product.isPromo) {
+        await onUpdate(product.id, { isPromo: false, prixPromo: undefined as any });
+      } else {
+        await onUpdate(product.id, { isPromo: true, prixPromo: Math.round(product.prix * 0.8 * 100) / 100 });
+      }
+    } catch { Alert.alert('Erreur', 'Mise à jour impossible.'); }
+    finally { setBusy(false); }
+  };
+
+  const confirmDelete = () => {
+    if (!product || !onDelete) return;
+    Alert.alert('Supprimer le produit', `Retirer « ${product.nom} » du catalogue ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer', style: 'destructive',
+        onPress: async () => {
+          setBusy(true);
+          try { await onDelete(product.id); onClose(); }
+          catch { Alert.alert('Erreur', 'Suppression impossible.'); }
+          finally { setBusy(false); }
+        },
+      },
+    ]);
+  };
 
   useEffect(() => {
     if (product) {
@@ -352,15 +393,65 @@ const BuySheet: React.FC<{
 
         {/* Tabs */}
         <View style={bs.tabs}>
-          {(['buy', 'info'] as const).map(t => (
+          {(['buy', 'info', 'manage'] as const).map(t => (
             <TouchableOpacity key={t} style={[bs.tab, tab === t && bs.tabActive]} onPress={() => setTab(t)}>
-              <Text style={[bs.tabText, tab === t && bs.tabTextActive]}>{t === 'buy' ? 'Commander' : 'Détails'}</Text>
+              <Text style={[bs.tabText, tab === t && bs.tabTextActive]}>
+                {t === 'buy' ? 'Commander' : t === 'info' ? 'Détails' : 'Gérer'}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={bs.scroll} showsVerticalScrollIndicator={false}>
-          {tab === 'buy' ? (
+          {tab === 'manage' ? (
+            <View style={{ gap: 18 }}>
+              {/* Stock control */}
+              <View>
+                <Text style={bs.optLabel}>Gestion du stock</Text>
+                <View style={bs.manageStockRow}>
+                  <TouchableOpacity style={bs.manageStockBtn} onPress={() => adjustStock(-1)} disabled={busy || product.stock === 0}>
+                    <IMinus />
+                  </TouchableOpacity>
+                  <View style={bs.manageStockMid}>
+                    <Text style={bs.manageStockVal}>{product.stock}</Text>
+                    <Text style={bs.manageStockLbl}>en stock</Text>
+                  </View>
+                  <TouchableOpacity style={bs.manageStockBtn} onPress={() => adjustStock(1)} disabled={busy}>
+                    <IPlus color={C.textDark} />
+                  </TouchableOpacity>
+                </View>
+                <View style={bs.manageQuick}>
+                  {[5, 10, 25].map(n => (
+                    <TouchableOpacity key={n} style={bs.manageQuickBtn} onPress={() => adjustStock(n)} disabled={busy}>
+                      <Text style={bs.manageQuickTxt}>+{n}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Promo toggle */}
+              <View>
+                <Text style={bs.optLabel}>Promotion</Text>
+                <TouchableOpacity style={[bs.managePromo, product.isPromo && bs.managePromoOn]} onPress={togglePromo} disabled={busy}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[bs.managePromoTitle, product.isPromo && { color: C.white }]}>
+                      {product.isPromo ? '✓ En promotion (-20%)' : 'Activer une promo -20%'}
+                    </Text>
+                    <Text style={[bs.managePromoSub, product.isPromo && { color: 'rgba(255,255,255,0.85)' }]}>
+                      {product.isPromo && product.prixPromo
+                        ? `Prix promo : ${product.prixPromo.toFixed(2)} €`
+                        : `Passerait de ${product.prix.toFixed(2)} € à ${(product.prix * 0.8).toFixed(2)} €`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Delete */}
+              <TouchableOpacity style={bs.manageDelete} onPress={confirmDelete} disabled={busy}>
+                <Text style={bs.manageDeleteTxt}>🗑  Supprimer du catalogue</Text>
+              </TouchableOpacity>
+            </View>
+          ) : tab === 'buy' ? (
             <>
               {/* Price */}
               <View style={bs.priceRow}>
@@ -449,7 +540,7 @@ const BuySheet: React.FC<{
         </ScrollView>
 
         {/* CTA buttons */}
-        {product.stock > 0 && (
+        {tab !== 'manage' && product.stock > 0 && (
           <View style={bs.cta}>
             <TouchableOpacity style={bs.ctaSecondary} onPress={addToCart} activeOpacity={0.85}>
               <ICart color={C.navy} size={16} />
@@ -460,7 +551,7 @@ const BuySheet: React.FC<{
             </TouchableOpacity>
           </View>
         )}
-        {product.stock === 0 && (
+        {tab !== 'manage' && product.stock === 0 && (
           <View style={bs.cta}>
             <View style={[bs.ctaPrimary, { backgroundColor: C.border, flex: 1 }]}>
               <Text style={[bs.ctaPrimaryTxt, { color: C.muted }]}>Rupture de stock</Text>
@@ -732,7 +823,7 @@ const AddModal: React.FC<{ visible: boolean; onClose: () => void; onAdd: (p: Pro
 const ProductsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const isDesktop = W >= 1024;
-  const { products, addProduct } = useProducts();
+  const { products, loading, error, addProduct, updateProduct, removeProduct } = useProducts();
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('Tous');
   const [liked, setLiked] = useState<Set<string>>(new Set());
@@ -844,8 +935,23 @@ const ProductsScreen: React.FC = () => {
           </View>
         )}
 
+        {/* ── Error banner ─────────────────────────────────────────────────── */}
+        {error && (
+          <View style={s.errorBanner}>
+            <Text style={s.errorBannerTxt}>⚠️ {error}</Text>
+          </View>
+        )}
+
         {/* ── Grid ─────────────────────────────────────────────────────────── */}
-        {filtered.length > 0 ? (
+        {loading && products.length === 0 ? (
+          <View style={s.empty}>
+            <View style={s.spinnerWrap}>
+              <Text style={{ fontSize: 40 }}>⏳</Text>
+            </View>
+            <Text style={s.emptyTitle}>Chargement du catalogue…</Text>
+            <Text style={s.emptySub}>Synchronisation avec votre boutique</Text>
+          </View>
+        ) : filtered.length > 0 ? (
           <View style={s.grid}>
             {filtered.map(p => (
               <ProductCard key={p.id} p={p}
@@ -917,7 +1023,8 @@ const ProductsScreen: React.FC = () => {
         addProduct(p);
         setShowAdd(false);
       }} />
-      <BuySheet product={buyProduct} onClose={() => setBuyProduct(null)} onAddToCart={addToCart} />
+      <BuySheet product={buyProduct} onClose={() => setBuyProduct(null)} onAddToCart={addToCart}
+        onUpdate={updateProduct} onDelete={removeProduct} />
     </>
   );
 };
@@ -969,6 +1076,9 @@ const s = StyleSheet.create({
   grid:          { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10 },
 
   empty:         { alignItems: 'center', paddingVertical: 60, gap: 8 },
+  spinnerWrap:   { width: 76, height: 76, borderRadius: 38, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  errorBanner:   { marginHorizontal: 16, marginBottom: 12, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  errorBannerTxt:{ fontSize: 13, color: '#B91C1C', fontWeight: '600' },
   emptyFull:     { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32, gap: 12 },
   emptyIllus:    { marginBottom: 8 },
   emptyTitle:    { fontSize: 20, fontWeight: '800', color: C.textDark },
@@ -1044,6 +1154,22 @@ const bs = StyleSheet.create({
   ctaSecondaryTxt:{ fontSize: 14, fontWeight: '700', color: C.accent },
   ctaPrimary:    { flex: 1, height: 52, borderRadius: 14, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   ctaPrimaryTxt: { color: C.white, fontWeight: '800', fontSize: 14 },
+
+  // Manage tab
+  manageStockRow:  { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
+  manageStockBtn:  { width: 56, height: 56, borderRadius: 16, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  manageStockMid:  { flex: 1, alignItems: 'center' },
+  manageStockVal:  { fontSize: 30, fontWeight: '900', color: C.textDark },
+  manageStockLbl:  { fontSize: 12, color: C.muted, fontWeight: '600' },
+  manageQuick:     { flexDirection: 'row', gap: 8, marginTop: 12 },
+  manageQuickBtn:  { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: C.accentSoft, alignItems: 'center' },
+  manageQuickTxt:  { fontSize: 14, fontWeight: '800', color: C.accent },
+  managePromo:     { flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 16, marginTop: 8 },
+  managePromoOn:   { backgroundColor: C.accent, borderColor: C.accent },
+  managePromoTitle:{ fontSize: 14, fontWeight: '800', color: C.textDark },
+  managePromoSub:  { fontSize: 12, color: C.textLight, marginTop: 3 },
+  manageDelete:    { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  manageDeleteTxt: { fontSize: 14, fontWeight: '800', color: C.error },
 });
 
 // Add modal styles
