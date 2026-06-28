@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
-  Animated, Easing, Platform, TextInput,
+  Animated, Easing, Platform, TextInput, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { where } from 'firebase/firestore';
 import Svg, { Path, Circle } from 'react-native-svg';
 import BottomNavigation from '../components/BottomNavigation';
+import { useAuth } from '../contexts/AuthContext';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
 import { T, shadow, radius } from '../theme';
-import { OrderStatus, ORDER_STATUS_META } from '../services/orderService';
+import { OrderStatus, ORDER_STATUS_META, Order } from '../services/orderService';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -86,30 +89,50 @@ const STATUS_FILTERS: { key: OrderStatus | 'all'; label: string }[] = [
 
 const OrdersScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
   const [search, setSearch] = useState('');
 
-  const filtered = DEMO_ORDERS.filter(o => {
+  // Fetch orders from Firestore in real-time, filtered by current user
+  const { data: orders, loading, error } = useRealtimeCollection<Order>('orders', {
+    constraints: user?.uid ? [where('userId', '==', user.uid)] : [],
+    enabled: !!user?.uid,
+  });
+
+  // Fall back to demo if no orders yet
+  const displayOrders = orders.length > 0 ? orders : DEMO_ORDERS;
+
+  const filtered = displayOrders.filter(o => {
     const matchStatus = filter === 'all' || o.status === filter;
     const q = search.toLowerCase();
-    const matchSearch = !q || o.client.toLowerCase().includes(q) || o.id.includes(q);
+    const oId = (o as any).id || (o as any).orderNumber || '#0';
+    const matchSearch = !q || o.client.toLowerCase().includes(q) || oId.includes(q);
     return matchStatus && matchSearch;
   });
 
   const stats = {
-    total:   DEMO_ORDERS.length,
-    revenue: DEMO_ORDERS.filter(o => !['cancelled','refunded'].includes(o.status)).reduce((s, o) => s + o.montant, 0),
-    pending: DEMO_ORDERS.filter(o => o.status === 'pending' || o.status === 'processing').length,
-    done:    DEMO_ORDERS.filter(o => o.status === 'delivered').length,
+    total:   displayOrders.length,
+    revenue: displayOrders.filter(o => !['cancelled','refunded'].includes(o.status)).reduce((s, o) => s + (o.total || (o as any).montant || 0), 0),
+    pending: displayOrders.filter(o => o.status === 'pending' || o.status === 'processing').length,
+    done:    displayOrders.filter(o => o.status === 'delivered').length,
   };
 
   const content = (
     <>
+      {/* Error banner */}
+      {error && (
+        <FadeIn delay={0} style={[st.errorBanner, { backgroundColor: T.errorSoft }]}>
+          <Text style={[st.errorText, { color: T.error }]}>⚠ Erreur: {error}</Text>
+        </FadeIn>
+      )}
+
       {/* Page heading */}
       <FadeIn delay={0} style={st.pageHead}>
         <View style={{ flex: 1 }}>
           <Text style={st.pageTitle}>Commandes</Text>
-          <Text style={st.pageSub}>{stats.total} commandes · {(stats.revenue / 1000).toFixed(0)}k F encaissés</Text>
+          <Text style={st.pageSub}>
+            {loading ? 'Synchronisation...' : `${stats.total} commandes · ${(stats.revenue / 1000).toFixed(0)}k F encaissés`}
+          </Text>
         </View>
         <TouchableOpacity style={st.newBtn} onPress={() => navigation.navigate('POS' as any)} activeOpacity={0.85}>
           <Ic d="M12 5v14M5 12h14" s={16} c="#fff" w={2.5} />
@@ -158,6 +181,7 @@ const OrdersScreen: React.FC = () => {
           {STATUS_FILTERS.map(f => {
             const active = filter === f.key;
             const meta = f.key !== 'all' ? ORDER_STATUS_META[f.key as OrderStatus] : null;
+            const count = f.key === 'all' ? displayOrders.length : displayOrders.filter(o => o.status === f.key).length;
             return (
               <TouchableOpacity
                 key={f.key}
@@ -167,9 +191,7 @@ const OrdersScreen: React.FC = () => {
               >
                 <Text style={[st.chipText, active && { color: '#fff', fontWeight: '700' }]}>{f.label}</Text>
                 <View style={[st.chipCount, active && { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                  <Text style={[st.chipCountText, active && { color: '#fff' }]}>
-                    {f.key === 'all' ? DEMO_ORDERS.length : DEMO_ORDERS.filter(o => o.status === f.key).length}
-                  </Text>
+                  <Text style={[st.chipCountText, active && { color: '#fff' }]}>{count}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -179,7 +201,12 @@ const OrdersScreen: React.FC = () => {
 
       {/* Orders list */}
       <FadeIn delay={160} style={st.listCard}>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <View style={st.emptyBox}>
+            <ActivityIndicator size="large" color={T.orange} />
+            <Text style={st.emptyText}>Chargement des commandes...</Text>
+          </View>
+        ) : filtered.length === 0 ? (
           <View style={st.emptyBox}>
             <Ic d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" s={32} c={T.muted} />
             <Text style={st.emptyText}>Aucune commande trouvée</Text>
@@ -189,9 +216,13 @@ const OrdersScreen: React.FC = () => {
           const meta = ORDER_STATUS_META[o.status];
           const initials = o.client.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
           const isLast = i === filtered.length - 1;
+          // Use orderNumber if id is missing (backward compat with demo data)
+          const oId = (o as any).id || o.orderNumber || '#0';
+          const oTotal = (o as any).total || (o as any).montant || 0;
+          const formattedDate = (o as any).date || ((o as any).createdAt ? new Date((o as any).createdAt).toLocaleDateString('fr-FR') : '—');
           return (
             <TouchableOpacity
-              key={o.id}
+              key={oId}
               style={[st.row, !isLast && st.rowBorder]}
               onPress={() => navigation.navigate('OrderDetail', { order: o })}
               activeOpacity={0.7}
@@ -201,7 +232,7 @@ const OrdersScreen: React.FC = () => {
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={st.orderNum}>{o.id}</Text>
+                  <Text style={st.orderNum}>{oId}</Text>
                   {o.fraudRisk === 'high' && (
                     <View style={st.fraudPill}>
                       <Text style={st.fraudText}>⚠ Risque</Text>
@@ -209,10 +240,10 @@ const OrdersScreen: React.FC = () => {
                   )}
                 </View>
                 <Text style={st.clientName}>{o.client}</Text>
-                <Text style={st.orderMeta}>{o.items?.length ?? 1} article{(o.items?.length ?? 1) > 1 ? 's' : ''} · {o.date}</Text>
+                <Text style={st.orderMeta}>{o.items?.length ?? 1} article{(o.items?.length ?? 1) > 1 ? 's' : ''} · {formattedDate}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <Text style={st.amount}>{(o.montant / 1000).toFixed(0)}k F</Text>
+                <Text style={st.amount}>{(oTotal / 1000).toFixed(0)}k F</Text>
                 <View style={[st.badge, { backgroundColor: meta.soft }]}>
                   <Text style={[st.badgeText, { color: meta.color }]}>{meta.label}</Text>
                 </View>
@@ -240,6 +271,9 @@ const OrdersScreen: React.FC = () => {
 const st = StyleSheet.create({
   root:   { flex: 1, backgroundColor: T.page },
   scroll: { padding: 16, paddingTop: Platform.OS === 'ios' ? 56 : 28, gap: 14, paddingBottom: 100 },
+
+  errorBanner: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: radius.md, marginBottom: 8 },
+  errorText: { fontSize: 13, fontWeight: '600' },
 
   pageHead:  { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   pageTitle: { fontSize: 26, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
