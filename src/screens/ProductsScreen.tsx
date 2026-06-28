@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput,
-  Dimensions, Alert, Modal, Image, FlatList, ActivityIndicator, Platform,
+  Alert, Modal, Image, ActivityIndicator, Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,9 +14,10 @@ import { StorageService } from '../services/storageService';
 const CATEGORIES = ['Vêtements', 'Chaussures', 'Accessoires', 'Électronique', 'Maison', 'Autre'];
 const PRODUCT_COLORS = ['#FEE2E2', '#DBEAFE', '#D1FAE5', '#FEF3C7', '#EDE9FE', '#FCE7F3'];
 
-const { width: W } = Dimensions.get('window');
-const COLS = 4; // Compact grid
-const PRODUCT_WIDTH = (W - 32 - (COLS - 1) * 8) / COLS;
+// Fixed-width cards that wrap to fill the available space (Shopify-style).
+// A fixed width avoids the "giant card" bug when the window width (incl. the
+// web sidebar) doesn't match the content area width.
+const PRODUCT_WIDTH = 168;
 const IMG_SIZE = PRODUCT_WIDTH;
 
 const C = {
@@ -52,10 +53,12 @@ const ProductsScreen: React.FC = () => {
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
 
-  // Create-product modal state
+  // Create-product modal state (Shopify-style product form)
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
   const [newPrice, setNewPrice] = useState('');
+  const [newComparePrice, setNewComparePrice] = useState('');
   const [newStock, setNewStock] = useState('');
   const [newCategory, setNewCategory] = useState(CATEGORIES[0]);
   const [newImageUri, setNewImageUri] = useState('');
@@ -83,16 +86,17 @@ const ProductsScreen: React.FC = () => {
   };
 
   const resetAddForm = () => {
-    setNewName(''); setNewPrice(''); setNewStock('');
-    setNewCategory(CATEGORIES[0]); setNewImageUri(''); setNewImageFile(null);
+    setNewName(''); setNewDescription(''); setNewPrice(''); setNewComparePrice('');
+    setNewStock(''); setNewCategory(CATEGORIES[0]); setNewImageUri(''); setNewImageFile(null);
   };
 
   const handleCreate = async () => {
     if (!newName.trim()) {
-      Alert.alert('Nom requis', 'Donnez un nom au produit.');
+      Alert.alert('Titre requis', 'Donnez un titre au produit.');
       return;
     }
     const prix = parseInt(newPrice) || 0;
+    const comparePrice = parseInt(newComparePrice) || 0;
     const stock = parseInt(newStock) || 0;
     setSaving(true);
     try {
@@ -101,7 +105,9 @@ const ProductsScreen: React.FC = () => {
       const docId = await addProduct({
         boutique_id: '',
         nom: newName.trim(),
+        description: newDescription.trim() || undefined,
         prix,
+        prixPromo: comparePrice > prix ? comparePrice : undefined,
         stock,
         categorie: newCategory,
         couleur,
@@ -249,14 +255,13 @@ const ProductsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={p => p.id}
-          numColumns={COLS}
-          renderItem={renderProduct}
-          contentContainerStyle={s.grid}
-          scrollEnabled={false}
-        />
+        <ScrollView contentContainerStyle={s.gridScroll} showsVerticalScrollIndicator={false}>
+          <View style={s.grid}>
+            {filtered.map(p => (
+              <View key={p.id}>{renderProduct({ item: p })}</View>
+            ))}
+          </View>
+        </ScrollView>
       )}
 
       {/* Edit modal */}
@@ -332,69 +337,116 @@ const ProductsScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Create-product modal */}
-      <Modal visible={showAdd} transparent animationType="fade">
-        <View style={s.modalOverlay}>
-          <View style={s.modalContent}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>Nouveau produit</Text>
-              <TouchableOpacity onPress={() => setShowAdd(false)}>
-                <Ico d="M18 6L6 18M6 6l12 12" s={24} c={C.text} />
+      {/* Create-product modal — Shopify-style product form */}
+      <Modal visible={showAdd} transparent animationType="slide">
+        <View style={s.sheetOverlay}>
+          <View style={s.sheet}>
+            {/* Sticky header */}
+            <View style={s.sheetHeader}>
+              <TouchableOpacity onPress={() => setShowAdd(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ico d="M18 6L6 18M6 6l12 12" s={22} c={C.textMid} />
+              </TouchableOpacity>
+              <Text style={s.sheetTitle}>Nouveau produit</Text>
+              <TouchableOpacity
+                style={[s.saveBtn, saving && { opacity: 0.6 }]}
+                onPress={handleCreate}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.saveBtnText}>Enregistrer</Text>}
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={s.modalBody} showsVerticalScrollIndicator={false}>
-              {/* Image picker */}
-              <TouchableOpacity style={s.imagePicker} onPress={pickImage} activeOpacity={0.8}>
-                {newImageUri ? (
-                  <Image source={{ uri: newImageUri }} style={s.imagePickerPreview} />
-                ) : (
-                  <View style={s.imagePickerEmpty}>
-                    <Ico d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.66-.9l.82-1.2A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" s={28} c={C.muted} />
-                    <Text style={s.imagePickerText}>Ajouter une photo</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <View style={s.field}>
-                <Text style={s.label}>Nom *</Text>
+            <ScrollView style={s.sheetBody} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+              {/* ── Titre & description ── */}
+              <View style={s.card}>
+                <Text style={s.cardLabel}>Titre</Text>
                 <TextInput
                   style={s.input}
                   value={newName}
                   onChangeText={setNewName}
-                  placeholder="Ex: T-shirt coton"
+                  placeholder="T-shirt coton bio"
+                  placeholderTextColor={C.muted}
+                />
+                <Text style={[s.cardLabel, { marginTop: 16 }]}>Description</Text>
+                <TextInput
+                  style={[s.input, s.textArea]}
+                  value={newDescription}
+                  onChangeText={setNewDescription}
+                  placeholder="Décrivez votre produit, sa matière, ses atouts…"
+                  placeholderTextColor={C.muted}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* ── Média ── */}
+              <View style={s.card}>
+                <Text style={s.cardSectionTitle}>Média</Text>
+                <TouchableOpacity style={s.mediaPicker} onPress={pickImage} activeOpacity={0.8}>
+                  {newImageUri ? (
+                    <Image source={{ uri: newImageUri }} style={s.mediaPreview} resizeMode="cover" />
+                  ) : (
+                    <View style={s.mediaEmpty}>
+                      <View style={s.mediaIconBox}>
+                        <Ico d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.66-.9l.82-1.2A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" s={22} c={C.accent} />
+                      </View>
+                      <Text style={s.mediaText}>Ajouter une image</Text>
+                      <Text style={s.mediaHint}>PNG, JPG — affichée dans le catalogue</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* ── Tarification ── */}
+              <View style={s.card}>
+                <Text style={s.cardSectionTitle}>Tarification</Text>
+                <View style={s.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.cardLabel}>Prix (F)</Text>
+                    <TextInput
+                      style={s.input}
+                      value={newPrice}
+                      onChangeText={setNewPrice}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor={C.muted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.cardLabel}>Prix barré (F)</Text>
+                    <TextInput
+                      style={s.input}
+                      value={newComparePrice}
+                      onChangeText={setNewComparePrice}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor={C.muted}
+                    />
+                  </View>
+                </View>
+                <Text style={s.helpText}>Le prix barré (plus élevé) affiche une promo dans le catalogue.</Text>
+              </View>
+
+              {/* ── Inventaire ── */}
+              <View style={s.card}>
+                <Text style={s.cardSectionTitle}>Inventaire</Text>
+                <Text style={s.cardLabel}>Quantité en stock</Text>
+                <TextInput
+                  style={s.input}
+                  value={newStock}
+                  onChangeText={setNewStock}
+                  keyboardType="number-pad"
+                  placeholder="0"
                   placeholderTextColor={C.muted}
                 />
               </View>
 
-              <View style={s.fieldRow}>
-                <View style={[s.field, { flex: 1 }]}>
-                  <Text style={s.label}>Prix (F)</Text>
-                  <TextInput
-                    style={s.input}
-                    value={newPrice}
-                    onChangeText={setNewPrice}
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor={C.muted}
-                  />
-                </View>
-                <View style={[s.field, { flex: 1 }]}>
-                  <Text style={s.label}>Stock</Text>
-                  <TextInput
-                    style={s.input}
-                    value={newStock}
-                    onChangeText={setNewStock}
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor={C.muted}
-                  />
-                </View>
-              </View>
-
-              <View style={s.field}>
-                <Text style={s.label}>Catégorie</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {/* ── Catégorie ── */}
+              <View style={s.card}>
+                <Text style={s.cardSectionTitle}>Catégorie</Text>
+                <View style={s.catWrap}>
                   {CATEGORIES.map(cat => (
                     <TouchableOpacity
                       key={cat}
@@ -405,21 +457,8 @@ const ProductsScreen: React.FC = () => {
                       <Text style={[s.catChipText, newCategory === cat && s.catChipTextActive]}>{cat}</Text>
                     </TouchableOpacity>
                   ))}
-                </ScrollView>
+                </View>
               </View>
-
-              <TouchableOpacity
-                style={[s.createBtn, saving && { opacity: 0.6 }]}
-                onPress={handleCreate}
-                disabled={saving}
-                activeOpacity={0.85}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={s.createBtnText}>Créer le produit</Text>
-                )}
-              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -439,8 +478,9 @@ const s = StyleSheet.create({
   banner: { marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
   searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 14, height: 44, backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, gap: 10 },
   searchInput: { flex: 1, fontSize: 14, color: C.text },
-  grid: { padding: 12, gap: 8 },
-  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 2 },
+  gridScroll: { padding: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  productCard: { width: PRODUCT_WIDTH },
   imgBox: { width: IMG_SIZE, height: IMG_SIZE * 1.15, borderRadius: 10, overflow: 'hidden', marginBottom: 6 },
   img: { width: '100%', height: '100%' },
   imgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
@@ -476,17 +516,34 @@ const s = StyleSheet.create({
   actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   actionText: { color: C.surface, fontWeight: '700', fontSize: 14 },
 
-  // Create-product modal
-  imagePicker: { width: '100%', height: 180, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed', overflow: 'hidden', marginBottom: 18, backgroundColor: C.bg },
-  imagePickerPreview: { width: '100%', height: '100%' },
-  imagePickerEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  imagePickerText: { fontSize: 13, fontWeight: '600', color: C.textLight },
+  // Shopify-style product sheet
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%', height: '94%' },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  sheetTitle: { fontSize: 16, fontWeight: '800', color: C.text },
+  saveBtn: { backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10, minWidth: 96, alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  sheetBody: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
+
+  card: { backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 14 },
+  cardSectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, marginBottom: 12 },
+  cardLabel: { fontSize: 12.5, fontWeight: '600', color: C.textMid, marginBottom: 6 },
+  textArea: { height: 96, paddingTop: 10 },
+  helpText: { fontSize: 11.5, color: C.muted, marginTop: 8, lineHeight: 16 },
+  row: { flexDirection: 'row', gap: 12 },
+
+  mediaPicker: { width: '100%', height: 160, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed', overflow: 'hidden', backgroundColor: C.bg },
+  mediaPreview: { width: '100%', height: '100%' },
+  mediaEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  mediaIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.accentLight, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  mediaText: { fontSize: 14, fontWeight: '700', color: C.text },
+  mediaHint: { fontSize: 11.5, color: C.muted },
+
+  catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   catChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
   catChipActive: { backgroundColor: C.accent, borderColor: C.accent },
   catChipText: { fontSize: 13, fontWeight: '600', color: C.textMid },
   catChipTextActive: { color: '#fff' },
-  createBtn: { backgroundColor: C.accent, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8, marginBottom: 8 },
-  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
 
 export default ProductsScreen;

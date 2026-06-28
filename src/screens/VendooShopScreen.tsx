@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity, Image,
-  Dimensions, FlatList, Alert, Modal, TextInput, ActivityIndicator, Platform,
+  Alert, Modal, TextInput, ActivityIndicator, Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,9 +9,8 @@ import { useProducts } from '../contexts/ProductsContext';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import Svg, { Path, Circle } from 'react-native-svg';
 
-const { width: W } = Dimensions.get('window');
-const COLS = 4; // Compact 4-column grid
-const PRODUCT_WIDTH = (W - 48 - 30) / COLS; // Small cards
+// Fixed-width cards that wrap (Shopify-style) — robust to sidebar/content width.
+const PRODUCT_WIDTH = 180;
 
 const C = {
   bg: '#F9FAFB', surface: '#FFFFFF', border: '#E5E7EB',
@@ -152,14 +151,11 @@ const VendooShopScreen: React.FC = () => {
           </View>
         ) : (
           <View style={s.productsSection}>
-            <FlatList
-              data={filtered}
-              keyExtractor={p => p.id}
-              numColumns={COLS}
-              renderItem={renderProduct}
-              scrollEnabled={false}
-              contentContainerStyle={s.grid}
-            />
+            <View style={s.grid}>
+              {filtered.map(p => (
+                <View key={p.id}>{renderProduct({ item: p })}</View>
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
@@ -264,8 +260,8 @@ const s = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, height: 40, backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, gap: 8 },
   searchInput: { flex: 1, fontSize: 13, color: C.text },
   productsSection: { paddingHorizontal: 12, paddingBottom: 100 },
-  grid: { gap: 8 },
-  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  productCard: { width: PRODUCT_WIDTH },
   imgBox: { width: PRODUCT_WIDTH, height: PRODUCT_WIDTH * 1.1, borderRadius: 10, overflow: 'hidden', marginBottom: 6 },
   img: { width: '100%', height: '100%' },
   imgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
