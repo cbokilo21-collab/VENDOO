@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { createUserWithEmailAndPassword, sendEmailVerification, reload } from 'firebase/auth';
 import { auth } from '../services/firebase';
+import { CustomerService } from '../services/customerService';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Line, Rect, Polyline } from 'react-native-svg';
@@ -201,6 +202,22 @@ const RegisterScreen: React.FC = () => {
       if (auth.currentUser) {
         await reload(auth.currentUser);
         if (auth.currentUser.emailVerified) {
+          // Create customer record on successful email verification
+          if (auth.currentUser.uid && email) {
+            try {
+              await CustomerService.create(auth.currentUser.uid, {
+                nom: name || 'Unnamed',
+                email,
+                segment: 'nouveau',
+                totalSpent: 0,
+                orderCount: 0,
+              });
+            } catch (err) {
+              console.error('Failed to create customer profile:', err);
+              // Continue anyway - customer creation is non-blocking
+            }
+          }
+
           if (userType === 'business') {
             navigation.navigate('CreateBoutique');
           } else {

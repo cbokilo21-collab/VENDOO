@@ -105,10 +105,11 @@ export const ProductsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) throw new Error('Not authenticated');
     try {
       setError(null);
-      const docId = await FirestoreService.create('products', {
-        ...p,
-        userId: user.uid,
-      });
+      // Remove undefined values before sending to Firestore
+      const cleanedData = Object.fromEntries(
+        Object.entries({ ...p, userId: user.uid }).filter(([_, v]) => v !== undefined)
+      );
+      const docId = await FirestoreService.create('products', cleanedData);
       return docId;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to add product';

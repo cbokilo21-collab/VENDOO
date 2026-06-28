@@ -56,6 +56,7 @@ import BoutiqueCatalogScreen    from '../screens/BoutiqueCatalogScreen';
 // Analytics, Notifications, Marketing
 import AnalyticsScreen          from '../screens/AnalyticsScreen';
 import NotificationsScreen      from '../screens/NotificationsScreen';
+import NotificationDetailScreen from '../screens/NotificationDetailScreen';
 import MarketingScreen          from '../screens/MarketingScreen';
 
 // Legacy (kept for compatibility)
@@ -111,6 +112,7 @@ const AppNavigator: React.FC = () => {
             {/* ── Analytics, Notifications, Marketing ─────────────────── */}
             <Stack.Screen name="Analytics"          component={withWebShell(AnalyticsScreen,       'Analytics')} />
             <Stack.Screen name="Notifications"      component={withWebShell(NotificationsScreen,   'Notifications')} />
+            <Stack.Screen name="NotificationDetail" component={withWebShell(NotificationDetailScreen, 'Notifications')} />
             <Stack.Screen name="Marketing"          component={withWebShell(MarketingScreen,       'Marketing')} />
 
             {/* ── Gestion ─────────────────────────────────────────────── */}

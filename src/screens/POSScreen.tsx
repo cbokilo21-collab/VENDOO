@@ -10,6 +10,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useAuth } from '../contexts/AuthContext';
 import { OrderService } from '../services/orderService';
+import { CustomerService } from '../services/customerService';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {

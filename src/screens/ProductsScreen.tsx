@@ -2,13 +2,15 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput,
   Dimensions, Alert, Animated, Easing, Modal, KeyboardAvoidingView,
-  Platform, PanResponder, StatusBar, Image,
+  Platform, PanResponder, StatusBar, Image, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import BottomNavigation from '../components/BottomNavigation';
 import Svg, { Path, Circle, Rect, G, Line, Polygon } from 'react-native-svg';
 import { useProducts } from '../contexts/ProductsContext';
+import { useAuth } from '../contexts/AuthContext';
+import { StorageService } from '../services/storageService';
 
 const { width: W, height: H } = Dimensions.get('window');
 const CARD_W = (W - 48 - 10) / 2;
@@ -590,6 +592,7 @@ const ToggleSwitch: React.FC<{ value: boolean; onToggle: () => void; label: stri
 );
 
 const AddModal: React.FC<{ visible: boolean; onClose: () => void; onAdd: (p: Product) => void }> = ({ visible, onClose, onAdd }) => {
+  const { user } = useAuth();
   const [form, setForm] = useState({ nom: '', prix: '', prixPromo: '', stock: '', categorie: '', description: '', sizes: '', colors: '' });
   const [emoji, setEmoji] = useState('📦');
   const [couleur, setCouleur] = useState(COLOR_LIST[0]);
@@ -597,6 +600,8 @@ const AddModal: React.FC<{ visible: boolean; onClose: () => void; onAdd: (p: Pro
   const [isNew, setIsNew] = useState(false);
   const [isPromo, setIsPromo] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handlePickImage = () => {
     if (Platform.OS === 'web') { webPickImage(setImageUri); return; }
@@ -616,28 +621,54 @@ const AddModal: React.FC<{ visible: boolean; onClose: () => void; onAdd: (p: Pro
     placeholderTextColor: C.muted,
   });
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.nom.trim() || !form.prix) { Alert.alert('Requis', 'Nom et prix obligatoires'); return; }
-    const p: Product = {
-      id: Date.now().toString(),
-      nom: form.nom.trim(),
-      prix: parseFloat(form.prix) || 0,
-      prixPromo: isPromo && form.prixPromo ? parseFloat(form.prixPromo) : undefined,
-      stock: parseInt(form.stock) || 0,
-      categorie: form.categorie.trim() || 'Autre',
-      emoji, couleur,
-      description: form.description.trim() || undefined,
-      note: 0, avis: 0,
-      isNew, isPromo,
-      sizes: form.sizes ? form.sizes.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-      colors: form.colors ? form.colors.split(',').map(s => s.trim()).filter(Boolean) : undefined,
-      imageUri: imageUri ?? undefined,
-    };
-    console.log('Adding product:', p);
-    onAdd(p);
-    setForm({ nom: '', prix: '', prixPromo: '', stock: '', categorie: '', description: '', sizes: '', colors: '' });
-    setEmoji('📦'); setCouleur(COLOR_LIST[0]); setIsNew(false); setIsPromo(false); setImageUri(null);
-    onClose();
+    if (!user) { Alert.alert('Erreur', 'Vous devez être connecté'); return; }
+
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+      
+      // Upload image to Storage if provided
+      let finalImageUri = imageUri;
+      if (imageUri) {
+        const tempId = Date.now().toString();
+        finalImageUri = await StorageService.uploadProductImage(
+          user.uid, 
+          tempId, 
+          imageUri,
+          (progress) => setUploadProgress(Math.round(progress))
+        );
+      }
+
+      const p: Product = {
+        id: Date.now().toString(),
+        nom: form.nom.trim(),
+        prix: parseFloat(form.prix) || 0,
+        prixPromo: isPromo && form.prixPromo ? parseFloat(form.prixPromo) : undefined,
+        stock: parseInt(form.stock) || 0,
+        categorie: form.categorie.trim() || 'Autre',
+        emoji, couleur,
+        description: form.description.trim() || undefined,
+        note: 0, avis: 0,
+        isNew, isPromo,
+        sizes: form.sizes ? form.sizes.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        colors: form.colors ? form.colors.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        imageUri: finalImageUri ?? undefined,
+      };
+      console.log('Adding product:', p);
+      onAdd(p);
+      setForm({ nom: '', prix: '', prixPromo: '', stock: '', categorie: '', description: '', sizes: '', colors: '' });
+      setEmoji('📦'); setCouleur(COLOR_LIST[0]); setIsNew(false); setIsPromo(false); setImageUri(null);
+      setUploadProgress(0);
+      onClose();
+    } catch (error) {
+      Alert.alert('Erreur', 'Échec de l\'ajout du produit');
+      console.error(error);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
@@ -656,8 +687,17 @@ const AddModal: React.FC<{ visible: boolean; onClose: () => void; onAdd: (p: Pro
               <Text style={am.title}>Nouveau produit</Text>
               <Text style={am.subtitle}>Remplissez les informations</Text>
             </View>
-            <TouchableOpacity onPress={submit} style={am.saveBtn}>
-              <Text style={am.saveBtnTxt}>Ajouter</Text>
+            <TouchableOpacity onPress={submit} style={am.saveBtn} disabled={uploading}>
+              {uploading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={am.saveBtnTxt}>
+                    {uploadProgress > 0 ? `${uploadProgress}%` : 'Upload...'}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={am.saveBtnTxt}>Ajouter</Text>
+              )}
             </TouchableOpacity>
           </View>
 

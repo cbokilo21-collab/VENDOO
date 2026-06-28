@@ -1,0 +1,12 @@
+[build]
+  command = "npx expo export --platform web"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback so React Navigation client-side routes work on reload
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

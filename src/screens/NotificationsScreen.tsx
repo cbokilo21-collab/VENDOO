@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Animated, RefreshControl, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
@@ -13,8 +13,14 @@ const C = {
 };
 
 type RootStackParamList = {
-  Notifications: undefined; BusinessDashboard: undefined;
-  Orders: undefined; Products: undefined; Analytics: undefined;
+  Notifications: undefined;
+  BusinessDashboard: undefined;
+  NotificationDetail: { notification: Notif };
+  Orders: undefined;
+  Products: undefined;
+  Analytics: undefined;
+  Customers: undefined;
+  Settings: undefined;
 };
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -48,7 +54,7 @@ const INITIAL_NOTIFS: Notif[] = [
 const FILTERS: (NotifType | 'all')[] = ['all', 'order', 'stock', 'ai', 'system'];
 const FILTER_LABELS: Record<string, string> = { all: 'Tout', order: 'Commandes', stock: 'Stock', ai: 'IA', system: 'Système' };
 
-const NotifIcon: React.FC<{ type: NotifType; color: string }> = ({ type, color }) => {
+const NotifIcon = React.memo<{ type: NotifType; color: string }>(({ type, color }) => {
   const props = { fill: 'none' as const, stroke: color, strokeWidth: 2 };
   switch (type) {
     case 'order':
@@ -82,24 +88,123 @@ const NotifIcon: React.FC<{ type: NotifType; color: string }> = ({ type, color }
         </Svg>
       );
   }
-};
+});
 
 const NotificationsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const [notifs, setNotifs] = useState<Notif[]>(INITIAL_NOTIFS);
   const [filter, setFilter] = useState<NotifType | 'all'>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const unread   = notifs.filter(n => !n.read).length;
   const filtered = filter === 'all' ? notifs : notifs.filter(n => n.type === filter);
 
-  const markRead  = (id: string) => setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  const markAll   = () => setNotifs(prev => prev.map(n => ({ ...n, read: true })));
-  const deleteOne = (id: string) => setNotifs(prev => prev.filter(n => n.id !== id));
+  const markRead  = useCallback((id: string) => setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n)), []);
+  const markAll   = useCallback(() => setNotifs(prev => prev.map(n => ({ ...n, read: true }))), []);
+  const deleteOne = useCallback((id: string) => {
+    setDeletingId(id);
+    setTimeout(() => {
+      setNotifs(prev => prev.filter(n => n.id !== id));
+      setDeletingId(null);
+    }, 200);
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [filtered, fadeAnim, slideAnim]);
 
   const handlePress = (notif: Notif) => {
     markRead(notif.id);
-    if (notif.route) navigation.navigate(notif.route as any);
+    navigation.navigate('NotificationDetail', { notification: notif });
   };
+
+  const handleFilterChange = useCallback((newFilter: NotifType | 'all') => {
+    setFilter(newFilter);
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
+  }, [fadeAnim, slideAnim]);
+
+  const NotificationCard = React.memo(({ notif, isDeleting }: { notif: Notif; isDeleting: boolean }) => {
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    
+    useEffect(() => {
+      if (isDeleting) {
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        scaleAnim.setValue(1);
+      }
+    }, [isDeleting, scaleAnim]);
+
+    const cfg = typeConfig[notif.type];
+
+    return (
+      <Animated.View
+        style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+        }}
+      >
+        <TouchableOpacity
+          style={[s.notifCard, !notif.read && s.notifCardUnread]}
+          activeOpacity={0.7}
+          onPress={() => handlePress(notif)}
+        >
+        {!notif.read && <View style={s.unreadDot}/>}
+        <View style={[s.iconCircle, { backgroundColor: cfg.color + '18' }]}>
+          <NotifIcon type={notif.type} color={cfg.color}/>
+        </View>
+        <View style={s.notifBody}>
+          <View style={s.notifTop}>
+            <View style={[s.typePill, { backgroundColor: cfg.color + '18' }]}>
+              <Text style={[s.typePillText, { color: cfg.color }]}>{cfg.label}</Text>
+            </View>
+            <Text style={s.notifTime}>{notif.time}</Text>
+          </View>
+          <Text style={[s.notifTitle, !notif.read && s.notifTitleUnread]}>{notif.title}</Text>
+          <Text style={s.notifBodyText} numberOfLines={2}>{notif.body}</Text>
+          {notif.route && (
+            <Text style={[s.notifCta, { color: cfg.color }]}>Voir →</Text>
+          )}
+        </View>
+        <TouchableOpacity
+          style={s.deleteBtn}
+          onPress={() => deleteOne(notif.id)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth={2}>
+            <Path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/>
+          </Svg>
+        </TouchableOpacity>
+      </TouchableOpacity>
+      </Animated.View>
+    );
+  });
 
   return (
     <View style={s.root}>
@@ -130,59 +235,49 @@ const NotificationsScreen: React.FC = () => {
       {/* Filter bar */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterBar} contentContainerStyle={s.filterBarInner}>
         {FILTERS.map(f => (
-          <TouchableOpacity key={f} style={[s.filterChip, filter === f && s.filterChipActive]} onPress={() => setFilter(f)}>
+          <TouchableOpacity 
+            key={f} 
+            style={[s.filterChip, filter === f && s.filterChipActive]} 
+            onPress={() => handleFilterChange(f)}
+            activeOpacity={0.7}
+          >
             <Text style={[s.filterText, filter === f && s.filterTextActive]}>{FILTER_LABELS[f]}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={s.inner} showsVerticalScrollIndicator={false}>
-        {filtered.length === 0 && (
-          <View style={s.emptyCard}>
+      <ScrollView 
+        contentContainerStyle={s.inner} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.accent}
+            colors={[C.accent]}
+          />
+        }
+      >
+        {loading ? (
+          <View style={s.loadingContainer}>
+            <ActivityIndicator size="large" color={C.accent} />
+            <Text style={s.loadingText}>Chargement...</Text>
+          </View>
+        ) : filtered.length === 0 ? (
+          <Animated.View style={[s.emptyCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <Text style={{ fontSize: 40, textAlign: 'center' }}>🔔</Text>
             <Text style={s.emptyTitle}>Aucune notification</Text>
             <Text style={s.emptySub}>Revenez plus tard</Text>
-          </View>
-        )}
+          </Animated.View>
+        ) : null}
 
-        {filtered.map(notif => {
-          const cfg = typeConfig[notif.type];
-          return (
-            <TouchableOpacity
-              key={notif.id}
-              style={[s.notifCard, !notif.read && s.notifCardUnread]}
-              activeOpacity={0.85}
-              onPress={() => handlePress(notif)}
-            >
-              {!notif.read && <View style={s.unreadDot}/>}
-              <View style={[s.iconCircle, { backgroundColor: cfg.color + '18' }]}>
-                <NotifIcon type={notif.type} color={cfg.color}/>
-              </View>
-              <View style={s.notifBody}>
-                <View style={s.notifTop}>
-                  <View style={[s.typePill, { backgroundColor: cfg.color + '18' }]}>
-                    <Text style={[s.typePillText, { color: cfg.color }]}>{cfg.label}</Text>
-                  </View>
-                  <Text style={s.notifTime}>{notif.time}</Text>
-                </View>
-                <Text style={[s.notifTitle, !notif.read && s.notifTitleUnread]}>{notif.title}</Text>
-                <Text style={s.notifBodyText} numberOfLines={2}>{notif.body}</Text>
-                {notif.route && (
-                  <Text style={[s.notifCta, { color: cfg.color }]}>Voir →</Text>
-                )}
-              </View>
-              <TouchableOpacity
-                style={s.deleteBtn}
-                onPress={() => deleteOne(notif.id)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth={2}>
-                  <Path d="M18 6L6 18M6 6l12 12" strokeLinecap="round"/>
-                </Svg>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          );
-        })}
+        {filtered.map((notif) => (
+          <NotificationCard 
+            key={notif.id} 
+            notif={notif} 
+            isDeleting={deletingId === notif.id}
+          />
+        ))}
       </ScrollView>
     </View>
   );
@@ -233,6 +328,8 @@ const s = StyleSheet.create({
   emptyCard:  { backgroundColor: C.surface, borderRadius: 16, padding: 40, alignItems: 'center', gap: 8, marginTop: 20 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: C.textDark, textAlign: 'center' },
   emptySub:   { fontSize: 13, color: C.textLight, textAlign: 'center' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40, gap: 12 },
+  loadingText: { fontSize: 14, color: C.textLight, fontWeight: '500' },
 });
 
-export default NotificationsScreen;
+export default React.memo(NotificationsScreen);
