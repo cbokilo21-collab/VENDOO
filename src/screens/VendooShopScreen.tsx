@@ -1,280 +1,251 @@
 import React, { useState } from 'react';
-import { ScreenHeader } from '../components/ScreenHeader';
 import {
-  View, StyleSheet, Text, ScrollView, TouchableOpacity,
-  Dimensions, Alert, Modal, TextInput
+  View, StyleSheet, Text, ScrollView, TouchableOpacity, Image,
+  Dimensions, FlatList, Alert, Modal, TextInput, ActivityIndicator, Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { useProducts } from '../contexts/ProductsContext';
+import { useBoutique } from '../contexts/BoutiqueContext';
+import Svg, { Path, Circle } from 'react-native-svg';
+
+const { width: W } = Dimensions.get('window');
+const COLS = 2;
+const PRODUCT_WIDTH = (W - 32 - 10) / COLS;
 
 const C = {
-  navy: '#FF6B35', navyMid: '#FF8A5C',
-  bg: '#FFF7F3', surface: '#FFFFFF', border: '#E2E8F0',
-  accent: '#FF6B35', accentSoft: 'rgba(255,107,53,0.1)',
-  textDark: '#0F172A', textMid: '#475569', textLight: '#64748B', muted: '#94A3B8',
-  success: '#10B981', warning: '#F59E0B', error: '#EF4444', info: '#3B82F6', purple: '#8B5CF6',
-  white: '#FFFFFF',
+  bg: '#F9FAFB', surface: '#FFFFFF', border: '#E5E7EB',
+  accent: '#FF6B35', accentLight: 'rgba(255,107,53,0.1)',
+  text: '#111827', textMid: '#374151', textLight: '#6B7280', muted: '#9CA3AF',
+  success: '#10B981', error: '#EF4444', warning: '#F59E0B',
 };
 
-type RootStackParamList = {
-  VendooShop: undefined; BusinessDashboard: undefined;
-};
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Nav = NativeStackNavigationProp<any>;
 
-interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  currency: string;
-  category: 'facade' | 'decoration' | 'upgrade' | 'premium';
-  emoji: string;
-  color: string;
-  popular?: boolean;
-  new?: boolean;
+const Ico = ({ d, s = 20, c = C.text }: { d: string; s?: number; c?: string }) => (
+  <Svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d={d} />
+  </Svg>
+);
+
+interface CartItem {
+  productId: string;
+  nom: string;
+  prix: number;
+  quantity: number;
 }
-
-const SHOP_ITEMS: ShopItem[] = [];
-
-const CATEGORIES = [
-  { id: 'all', label: 'Tout', color: C.textMid },
-  { id: 'facade', label: 'Façades', color: C.purple },
-  { id: 'decoration', label: 'Décorations', color: C.warning },
-  { id: 'upgrade', label: 'Upgrades', color: C.info },
-  { id: 'premium', label: 'Premium', color: C.accent },
-];
 
 const VendooShopScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
-  const [ownedItems, setOwnedItems] = useState<string[]>([]);
-  const [showChat, setShowChat] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<{ text: string; isMe: boolean; sender?: string }[]>([
-    { text: 'Bienvenue sur Vendoo Shop ! Comment puis-je vous aider ?', isMe: false, sender: 'Assistant Vendoo' },
-  ]);
+  const route = useRoute();
+  const { products, loading } = useProducts();
+  const { boutiqueData } = useBoutique();
 
-  const filteredItems = selectedCategory === 'all'
-    ? SHOP_ITEMS
-    : SHOP_ITEMS.filter(item => item.category === selectedCategory);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCart, setShowCart] = useState(false);
+  const [search, setSearch] = useState('');
 
-  const handlePurchase = (item: ShopItem) => {
-    Alert.alert(
-      'Confirmer l\'achat',
-      `Voulez-vous acheter ${item.name} pour ${item.currency} ${item.price.toFixed(2)} ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Acheter',
-          onPress: () => {
-            setOwnedItems(prev => [...prev, item.id]);
-            Alert.alert('Succès', `${item.name} a été ajouté à votre boutique !`);
-            setSelectedItem(null);
-          },
-        },
-      ]
-    );
+  const filtered = products.filter(p =>
+    p.nom.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const addToCart = (p: any) => {
+    const existing = cart.find(ci => ci.productId === p.id);
+    if (existing) {
+      setCart(cart.map(ci =>
+        ci.productId === p.id ? { ...ci, quantity: ci.quantity + 1 } : ci
+      ));
+    } else {
+      setCart([...cart, {
+        productId: p.id,
+        nom: p.nom,
+        prix: p.prix,
+        quantity: 1,
+      }]);
+    }
+    Alert.alert('', `${p.nom} ajouté au panier`);
   };
 
-  const isOwned = (itemId: string) => ownedItems.includes(itemId);
+  const removeFromCart = (productId: string) => {
+    setCart(cart.filter(ci => ci.productId !== productId));
+  };
 
-  const sendMessage = () => {
-    if (message.trim()) {
-      setMessages([...messages, { text: message, isMe: true }]);
-      setMessage('');
-      
-      setTimeout(() => {
-        const responses = [
-          'Je peux vous aider à trouver la meilleure façade pour votre boutique !',
-          'Nos décorations sont très populaires. Voulez-vous voir les nouveautés ?',
-          'Les upgrades premium peuvent augmenter vos ventes de 30% !',
-          'N\'hésitez pas à me poser des questions sur nos produits.',
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        setMessages(prev => [...prev, { text: randomResponse, isMe: false, sender: 'Assistant Vendoo' }]);
-      }, 1000);
+  const updateQty = (productId: string, qty: number) => {
+    if (qty <= 0) {
+      removeFromCart(productId);
+    } else {
+      setCart(cart.map(ci =>
+        ci.productId === productId ? { ...ci, quantity: qty } : ci
+      ));
     }
   };
 
-  return (
-    <View style={s.root}>
-        <ScreenHeader title="Vendoo Shop" />
-      {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.textDark} strokeWidth={2}>
-            <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
-          </Svg>
-        </TouchableOpacity>
-        <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>🛍️ Vendoo Shop</Text>
-          <Text style={s.headerSubtitle}>Personnalisez votre boutique</Text>
-        </View>
-        <View style={s.balanceBadge}>
-          <Text style={s.balanceText}>€ 0.00</Text>
-        </View>
-        <TouchableOpacity style={s.chatBtn} onPress={() => setShowChat(true)}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.white} strokeWidth={2}>
-            <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round"/>
-          </Svg>
-        </TouchableOpacity>
-      </View>
+  const cartTotal = cart.reduce((sum, item) => sum + (item.prix * item.quantity), 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-      {/* Categories */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} contentContainerStyle={s.catRow}>
-        {CATEGORIES.map(cat => (
-          <TouchableOpacity
-            key={cat.id}
-            style={[s.catChip, selectedCategory === cat.id && s.catChipActive]}
-            onPress={() => setSelectedCategory(cat.id)}
-          >
-            <Text style={[s.catText, selectedCategory === cat.id && s.catTextActive]}>{cat.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Advertising Banner */}
-      <View style={s.adBanner}>
-        <View style={s.adContent}>
-          <View style={s.adLeft}>
-            <Text style={s.adTag}>PUBLICITÉ</Text>
-            <Text style={s.adTitle}>Boostez vos ventes avec Premium</Text>
-            <Text style={s.adDesc}>+30% de visibilité dès maintenant</Text>
-          </View>
-          <TouchableOpacity style={s.adBtn}>
-            <Text style={s.adBtnText}>Découvrir</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Items Grid */}
-      <ScrollView contentContainerStyle={s.itemsGrid} showsVerticalScrollIndicator={false}>
-        {filteredItems.map(item => (
-          <TouchableOpacity
-            key={item.id}
-            style={[s.itemCard, isOwned(item.id) && s.itemCardOwned]}
-            onPress={() => setSelectedItem(item)}
-            activeOpacity={0.75}
-          >
-            {item.popular && <View style={s.popularBadge}><Text style={s.popularText}>Populaire</Text></View>}
-            {item.new && <View style={[s.popularBadge, s.newBadge]}><Text style={s.popularText}>Nouveau</Text></View>}
-            {isOwned(item.id) && <View style={[s.popularBadge, s.ownedBadge]}><Text style={s.popularText}>Possédé</Text></View>}
-            
-            <View style={[s.itemIcon, { backgroundColor: item.color + '20' }]}>
-              <Text style={s.itemEmoji}>{item.emoji}</Text>
-            </View>
-            
-            <Text style={s.itemName}>{item.name}</Text>
-            <Text style={s.itemDesc} numberOfLines={2}>{item.description}</Text>
-            
-            <View style={s.itemFooter}>
-              <Text style={s.itemPrice}>{item.currency} {item.price.toFixed(2)}</Text>
-              {isOwned(item.id) ? (
-                <View style={s.ownedBtn}>
-                  <Text style={s.ownedBtnText}>✓ Possédé</Text>
-                </View>
-              ) : (
-                <View style={[s.buyBtn, { backgroundColor: item.color }]}>
-                  <Text style={s.buyBtnText}>Acheter</Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Item Detail Modal */}
-      <Modal visible={!!selectedItem} transparent animationType="slide" onRequestClose={() => setSelectedItem(null)}>
-        {selectedItem && (
-          <View style={s.modalOverlay}>
-            <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setSelectedItem(null)} />
-            <View style={s.modalContent}>
-              <View style={[s.modalIcon, { backgroundColor: selectedItem.color + '20' }]}>
-                <Text style={s.modalEmoji}>{selectedItem.emoji}</Text>
-              </View>
-              
-              <Text style={s.modalTitle}>{selectedItem.name}</Text>
-              <Text style={s.modalDesc}>{selectedItem.description}</Text>
-              
-              <View style={s.modalPriceRow}>
-                <Text style={s.modalPrice}>{selectedItem.currency} {selectedItem.price.toFixed(2)}</Text>
-                {isOwned(selectedItem.id) && <Text style={s.modalOwned}>Déjà possédé</Text>}
-              </View>
-              
-              <View style={s.modalFeatures}>
-                <Text style={s.modalFeatureTitle}>Caractéristiques :</Text>
-                <Text style={s.modalFeature}>• Installation instantanée</Text>
-                <Text style={s.modalFeature}>• Compatible avec votre boutique</Text>
-                <Text style={s.modalFeature}>• Support inclus</Text>
-              </View>
-              
-              <TouchableOpacity
-                style={[s.modalBuyBtn, isOwned(selectedItem.id) && s.modalBuyBtnOwned]}
-                onPress={() => handlePurchase(selectedItem)}
-                disabled={isOwned(selectedItem.id)}
-              >
-                <Text style={s.modalBuyBtnText}>
-                  {isOwned(selectedItem.id) ? 'Déjà possédé' : `Acheter pour ${selectedItem.currency} ${selectedItem.price.toFixed(2)}`}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={s.modalCloseBtn} onPress={() => setSelectedItem(null)}>
-                <Text style={s.modalCloseBtnText}>Fermer</Text>
-              </TouchableOpacity>
-            </View>
+  const renderProduct = ({ item: p }: { item: any }) => (
+    <View style={s.productCard}>
+      <View style={[s.imgBox, { backgroundColor: p.couleur || C.bg }]}>
+        {p.imageUri ? (
+          <Image source={{ uri: p.imageUri }} style={s.img} />
+        ) : (
+          <View style={s.imgPlaceholder}>
+            <Ico d="M4 16l8-8m-8 0l8 8M20 4l-8 8m8-8l-8-8" s={28} c={C.muted} />
           </View>
         )}
-      </Modal>
+      </View>
+      <Text style={s.productName} numberOfLines={2}>{p.nom}</Text>
+      <Text style={s.productPrice}>{(p.prix / 1000).toFixed(0)}k F</Text>
+      <TouchableOpacity
+        style={s.addBtn}
+        onPress={() => addToCart(p)}
+        activeOpacity={0.8}
+      >
+        <Ico d="M12 5v14M5 12h14" s={16} c="#fff" />
+        <Text style={s.addBtnText}>Ajouter</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-      {/* Chat Modal */}
-      <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowChat(false)}>
-        <View style={s.chatRoot}>
-          <View style={s.chatHeader}>
-            <TouchableOpacity onPress={() => setShowChat(false)} style={s.chatBackBtn}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.textDark} strokeWidth={2}>
-                <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
-              </Svg>
-            </TouchableOpacity>
-            <View style={s.chatHeaderCenter}>
-              <Text style={s.chatHeaderTitle}>Assistant Vendoo</Text>
-              <Text style={s.chatHeaderSubtitle}>Votre assistant shopping 24/7</Text>
+  const cartItems = cart.map(ci => {
+    const p = products.find(x => x.id === ci.productId);
+    return { ...ci, product: p };
+  });
+
+  return (
+    <View style={s.root}>
+      {/* Header with shop info */}
+      <ScrollView style={s.content} showsVerticalScrollIndicator={false}>
+        {/* Banner */}
+        <View style={s.banner}>
+          <View style={s.bannerGradient} />
+          <View style={s.shopHeader}>
+            <View style={s.logoBox}>
+              <Text style={s.logoText}>V</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.shopName}>{boutiqueData?.nom || 'Ma Boutique'}</Text>
+              <Text style={s.shopMeta}>Boutique en ligne • Vendoo</Text>
             </View>
           </View>
+        </View>
 
-          <ScrollView contentContainerStyle={s.chatMessages} showsVerticalScrollIndicator={false}>
-            {/* Advertising in chat */}
-            <View style={s.chatAdBanner}>
-              <Text style={s.chatAdTag}>SPONSORISÉ</Text>
-              <Text style={s.chatAdTitle}>Offre spéciale : -20% sur les façades</Text>
-              <TouchableOpacity style={s.chatAdBtn}>
-                <Text style={s.chatAdBtnText}>Voir l'offre</Text>
+        {/* Description */}
+        <View style={s.section}>
+          <Text style={s.sectionText}>
+            Bienvenue dans notre boutique. Découvrez notre sélection de produits de qualité.
+          </Text>
+        </View>
+
+        {/* Search */}
+        <View style={s.searchBar}>
+          <Ico d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" s={16} c={C.muted} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Rechercher…"
+            placeholderTextColor={C.muted}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {/* Products */}
+        {loading ? (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color={C.accent} />
+          </View>
+        ) : (
+          <View style={s.productsSection}>
+            <FlatList
+              data={filtered}
+              keyExtractor={p => p.id}
+              numColumns={COLS}
+              renderItem={renderProduct}
+              scrollEnabled={false}
+              contentContainerStyle={s.grid}
+            />
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Floating cart button */}
+      {cartCount > 0 && (
+        <TouchableOpacity
+          style={s.floatingCart}
+          onPress={() => setShowCart(true)}
+          activeOpacity={0.9}
+        >
+          <Ico d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" s={20} c="#fff" />
+          <View style={s.cartBadge}>
+            <Text style={s.cartBadgeText}>{cartCount}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Cart modal */}
+      <Modal visible={showCart} transparent animationType="slide">
+        <View style={s.cartOverlay}>
+          <View style={s.cartPanel}>
+            {/* Cart header */}
+            <View style={s.cartHeader}>
+              <Text style={s.cartTitle}>Panier</Text>
+              <TouchableOpacity onPress={() => setShowCart(false)}>
+                <Ico d="M18 6L6 18M6 6l12 12" s={24} c={C.text} />
               </TouchableOpacity>
             </View>
 
-            {messages.map((msg, i) => (
-              <View key={i} style={[s.messageBubble, msg.isMe ? s.messageMe : s.messageSeller]}>
-                {!msg.isMe && msg.sender && <Text style={s.messageSender}>{msg.sender}</Text>}
-                <Text style={[s.messageText, msg.isMe ? s.messageTextMe : s.messageTextSeller]}>{msg.text}</Text>
+            {/* Cart items */}
+            {cartItems.length === 0 ? (
+              <View style={s.emptyCart}>
+                <Ico d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" s={40} c={C.muted} />
+                <Text style={s.emptyText}>Panier vide</Text>
               </View>
-            ))}
-          </ScrollView>
+            ) : (
+              <ScrollView style={s.cartItems} showsVerticalScrollIndicator={false}>
+                {cartItems.map(item => (
+                  <View key={item.productId} style={s.cartItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.cartItemName}>{item.nom}</Text>
+                      <Text style={s.cartItemPrice}>{(item.prix / 1000).toFixed(0)}k F</Text>
+                    </View>
+                    <View style={s.qtyControl}>
+                      <TouchableOpacity
+                        style={s.qtyBtn}
+                        onPress={() => updateQty(item.productId, item.quantity - 1)}
+                      >
+                        <Text style={s.qtyBtnText}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={s.qtyValue}>{item.quantity}</Text>
+                      <TouchableOpacity
+                        style={s.qtyBtn}
+                        onPress={() => updateQty(item.productId, item.quantity + 1)}
+                      >
+                        <Text style={s.qtyBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
 
-          <View style={s.chatInputRow}>
-            <TextInput
-              style={s.chatInput}
-              placeholder="Posez une question sur les produits..."
-              placeholderTextColor={C.muted}
-              value={message}
-              onChangeText={setMessage}
-              multiline
-            />
-            <TouchableOpacity style={s.chatSendBtn} onPress={sendMessage}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.white} strokeWidth={2}>
-                <Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round"/>
-              </Svg>
-            </TouchableOpacity>
+            {/* Cart footer */}
+            {cartItems.length > 0 && (
+              <View style={s.cartFooter}>
+                <View style={s.totalRow}>
+                  <Text style={s.totalLabel}>Total</Text>
+                  <Text style={s.totalAmount}>{(cartTotal / 1000).toFixed(0)}k F</Text>
+                </View>
+                <TouchableOpacity
+                  style={s.checkoutBtn}
+                  onPress={() => {
+                    Alert.alert('Panier', `Total: ${(cartTotal / 1000).toFixed(0)}k F\n\nFonctionnalité de paiement à venir`);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.checkoutText}>Passer la commande</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -284,100 +255,52 @@ const VendooShopScreen: React.FC = () => {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  
-  header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
-  backBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flex: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: C.textDark },
-  headerSubtitle: { fontSize: 12, color: C.textLight },
-  balanceBadge: { backgroundColor: C.success + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  balanceText: { fontSize: 13, fontWeight: '700', color: C.success },
-  chatBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  
-  catScroll: { flexGrow: 0, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
-  catRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
-  catChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border },
-  catChipActive: { backgroundColor: C.accent, borderColor: C.accent },
-  catText: { fontSize: 13, color: C.textMid, fontWeight: '500' },
-  catTextActive: { color: C.white, fontWeight: '700' },
-  
-  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 12, paddingBottom: 24 },
-  itemCard: {
-    width: '47%', backgroundColor: C.white, borderRadius: 16, padding: 14,
-    borderWidth: 2, borderColor: 'transparent',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8,
-    position: 'relative',
-  },
-  itemCardOwned: { borderColor: C.success, backgroundColor: '#F0FDF4' },
-  popularBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: C.accent, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  newBadge: { backgroundColor: C.success },
-  ownedBadge: { backgroundColor: C.success },
-  popularText: { fontSize: 10, fontWeight: '700', color: C.white },
-  itemIcon: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  itemEmoji: { fontSize: 28 },
-  itemName: { fontSize: 14, fontWeight: '700', color: C.textDark, marginBottom: 4 },
-  itemDesc: { fontSize: 11, color: C.textLight, marginBottom: 10, lineHeight: 15 },
-  itemFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemPrice: { fontSize: 15, fontWeight: '800', color: C.textDark },
-  buyBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  buyBtnText: { fontSize: 12, fontWeight: '700', color: C.white },
-  ownedBtn: { backgroundColor: C.success, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  ownedBtnText: { fontSize: 12, fontWeight: '700', color: C.white },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalBackdrop: { flex: 1 },
-  modalContent: { backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16 },
-  modalIcon: { width: 70, height: 70, borderRadius: 20, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
-  modalEmoji: { fontSize: 40 },
-  modalTitle: { fontSize: 22, fontWeight: '800', color: C.textDark, textAlign: 'center' },
-  modalDesc: { fontSize: 14, color: C.textMid, textAlign: 'center', lineHeight: 20 },
-  modalPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  modalPrice: { fontSize: 28, fontWeight: '900', color: C.accent },
-  modalOwned: { fontSize: 14, fontWeight: '700', color: C.success },
-  modalFeatures: { backgroundColor: C.bg, borderRadius: 12, padding: 16, gap: 8 },
-  modalFeatureTitle: { fontSize: 13, fontWeight: '700', color: C.textDark },
-  modalFeature: { fontSize: 13, color: C.textMid },
-  modalBuyBtn: { backgroundColor: C.accent, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  modalBuyBtnOwned: { backgroundColor: C.success, opacity: 0.6 },
-  modalBuyBtnText: { fontSize: 16, fontWeight: '800', color: C.white },
-  modalCloseBtn: { alignItems: 'center', paddingVertical: 12 },
-  modalCloseBtnText: { fontSize: 14, fontWeight: '600', color: C.textMid },
-
-  // Chat modal styles
-  chatRoot: { flex: 1, backgroundColor: C.bg },
-  chatHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
-  chatBackBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  chatHeaderCenter: { flex: 1, marginLeft: 12 },
-  chatHeaderTitle: { fontSize: 18, fontWeight: '800', color: C.textDark },
-  chatHeaderSubtitle: { fontSize: 12, color: C.textLight },
-  chatMessages: { padding: 20, gap: 12, paddingBottom: 100 },
-  messageBubble: { maxWidth: '80%', padding: 12, borderRadius: 16, marginBottom: 8 },
-  messageMe: { backgroundColor: C.accent, alignSelf: 'flex-end' },
-  messageSeller: { backgroundColor: C.white, alignSelf: 'flex-start', borderWidth: 1, borderColor: C.border },
-  messageSender: { fontSize: 11, fontWeight: '700', color: C.textLight, marginBottom: 4 },
-  messageText: { fontSize: 14, lineHeight: 20 },
-  messageTextMe: { color: C.white },
-  messageTextSeller: { color: C.textDark },
-  chatInputRow: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.border, gap: 12 },
-  chatInput: { flex: 1, backgroundColor: C.bg, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, maxHeight: 100 },
-  chatSendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-
-  // Advertising banner styles
-  adBanner: { backgroundColor: C.accent, marginHorizontal: 16, marginTop: 16, borderRadius: 16, overflow: 'hidden' },
-  adContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
-  adLeft: { flex: 1 },
-  adTag: { fontSize: 10, fontWeight: '700', color: C.accent, letterSpacing: 1, marginBottom: 4 },
-  adTitle: { fontSize: 16, fontWeight: '800', color: C.white, marginBottom: 2 },
-  adDesc: { fontSize: 12, color: '#94A3B8' },
-  adBtn: { backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  adBtnText: { fontSize: 13, fontWeight: '700', color: C.white },
-
-  // Chat advertising styles
-  chatAdBanner: { backgroundColor: C.accent + '10', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: C.border },
-  chatAdTag: { fontSize: 10, fontWeight: '700', color: C.accent, letterSpacing: 1, marginBottom: 4 },
-  chatAdTitle: { fontSize: 14, fontWeight: '700', color: C.textDark, marginBottom: 8 },
-  chatAdBtn: { backgroundColor: C.accent, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
-  chatAdBtnText: { fontSize: 12, fontWeight: '700', color: C.white },
+  content: { flex: 1 },
+  banner: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border, overflow: 'hidden' },
+  bannerGradient: { height: 120, backgroundColor: C.accent + '20' },
+  shopHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, marginTop: -60, marginHorizontal: 16 },
+  logoBox: { width: 60, height: 60, borderRadius: 16, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  logoText: { color: C.surface, fontSize: 28, fontWeight: '800' },
+  shopName: { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 2 },
+  shopMeta: { fontSize: 12, color: C.textLight },
+  section: { padding: 16 },
+  sectionText: { fontSize: 14, color: C.textMid, lineHeight: 21 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, gap: 10 },
+  searchInput: { flex: 1, fontSize: 14, color: C.text },
+  productsSection: { paddingHorizontal: 16, paddingBottom: 100 },
+  grid: { gap: 10 },
+  productCard: { width: PRODUCT_WIDTH, marginHorizontal: 5 },
+  imgBox: { width: PRODUCT_WIDTH, height: PRODUCT_WIDTH, borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
+  img: { width: '100%', height: '100%' },
+  imgPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  productName: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 4, lineHeight: 18 },
+  productPrice: { fontSize: 14, fontWeight: '700', color: C.accent, marginBottom: 8 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.accent, paddingVertical: 10, borderRadius: 10 },
+  addBtnText: { color: C.surface, fontWeight: '700', fontSize: 13 },
+  loadingBox: { height: 300, alignItems: 'center', justifyContent: 'center' },
+  floatingCart: { position: 'absolute', bottom: 24, right: 16, width: 56, height: 56, borderRadius: 28, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', shadowColor: C.accent, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  cartBadge: { position: 'absolute', top: -8, right: -8, width: 28, height: 28, borderRadius: 14, backgroundColor: C.error, alignItems: 'center', justifyContent: 'center' },
+  cartBadgeText: { color: C.surface, fontWeight: '800', fontSize: 12 },
+  cartOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  cartPanel: { marginTop: 'auto', backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
+  cartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border },
+  cartTitle: { fontSize: 18, fontWeight: '700', color: C.text },
+  cartItems: { padding: 16 },
+  cartItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  cartItemName: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 4 },
+  cartItemPrice: { fontSize: 13, color: C.accent, fontWeight: '700' },
+  qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.bg, borderRadius: 8, padding: 4 },
+  qtyBtn: { width: 32, height: 32, borderRadius: 6, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  qtyBtnText: { color: C.text, fontWeight: '700', fontSize: 14 },
+  qtyValue: { width: 32, textAlign: 'center', fontWeight: '700', color: C.text },
+  emptyCart: { height: 300, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyText: { fontSize: 16, color: C.muted, fontWeight: '600' },
+  cartFooter: { padding: 20, borderTopWidth: 1, borderTopColor: C.border, gap: 12 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  totalLabel: { fontSize: 14, color: C.textMid, fontWeight: '600' },
+  totalAmount: { fontSize: 24, fontWeight: '800', color: C.accent },
+  checkoutBtn: { backgroundColor: C.accent, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  checkoutText: { color: C.surface, fontWeight: '700', fontSize: 15 },
 });
 
 export default VendooShopScreen;

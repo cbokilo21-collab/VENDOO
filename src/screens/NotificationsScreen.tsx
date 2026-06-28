@@ -137,7 +137,34 @@ const NotificationsScreen: React.FC = () => {
 
   const handlePress = (notif: Notif) => {
     markRead(notif.id);
-    navigation.navigate('NotificationDetail', { notification: notif });
+    if (notif.route) {
+      // Naviguer directement vers la route cible
+      switch (notif.route) {
+        case 'Orders':
+          navigation.navigate('Orders');
+          break;
+        case 'Products':
+          navigation.navigate('Products');
+          break;
+        case 'Analytics':
+          navigation.navigate('Analytics');
+          break;
+        case 'Customers':
+          navigation.navigate('Customers');
+          break;
+        case 'Settings':
+          navigation.navigate('Settings');
+          break;
+        case 'BusinessDashboard':
+          navigation.navigate('BusinessDashboard');
+          break;
+        default:
+          navigation.navigate('NotificationDetail', { notification: notif });
+      }
+    } else {
+      // Pas de route, aller vers les détails
+      navigation.navigate('NotificationDetail', { notification: notif });
+    }
   };
 
   const handleFilterChange = useCallback((newFilter: NotifType | 'all') => {

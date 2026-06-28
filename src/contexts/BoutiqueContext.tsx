@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface BoutiqueData {
   nom: string;
+  slug?: string; // URL-friendly name (auto-generated): "mode-etoile"
+  shopUrl?: string; // Public shop URL: "shop.mode-etoile.vendoo"
   description: string;
   logo: string;
   website: string;

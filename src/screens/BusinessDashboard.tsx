@@ -188,6 +188,20 @@ const BusinessDashboard: React.FC = () => {
         </View>
       </View>
 
+      {/* ── Public Shop Link ─────────────────────────────────────────────── */}
+      {boutiqueData.shopUrl && (
+        <TouchableOpacity style={d.shopLinkCard} activeOpacity={0.8}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+            <Ic d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={20} c={T.orange} w={2}/>
+            <View style={{ flex: 1 }}>
+              <Text style={d.shopLinkLabel}>Votre boutique en ligne</Text>
+              <Text style={d.shopLinkUrl}>{boutiqueData.shopUrl}</Text>
+            </View>
+          </View>
+          <Ic d="M8 17a2 2 0 01-2-2V5a2 2 0 012-2h6a2 2 0 012 2v10a2 2 0 01-2 2H8z" s={18} c={T.orange} w={2}/>
+        </TouchableOpacity>
+      )}
+
       {/* ── Revenue card ─────────────────────────────────────────────────── */}
       <View style={d.card}>
         <View style={d.revTop}>
@@ -362,6 +376,11 @@ const d = StyleSheet.create({
   notifMsg:    { fontSize:12.5, fontWeight:'600', color:T.textMid, lineHeight:17 },
   notifTime:   { fontSize:11, color:T.muted, marginTop:2 },
   notifDot:    { width:8, height:8, borderRadius:4, backgroundColor:T.orange },
+
+  // Shop link card
+  shopLinkCard:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingHorizontal:16, paddingVertical:14, backgroundColor:T.orange+'12', borderRadius:14, borderWidth:1.5, borderColor:T.orange+'40', gap:12 },
+  shopLinkLabel:{ fontSize:12, fontWeight:'700', color:T.textMid, marginBottom:2 },
+  shopLinkUrl: { fontSize:13, fontWeight:'600', color:T.orange },
 
   // Generic card
   card:        { backgroundColor:T.surface, borderRadius:16, padding:18, borderWidth:1, borderColor:T.border, ...shadow.card },

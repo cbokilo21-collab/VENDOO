@@ -7,6 +7,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { slugify, generateShopUrl } from '../utils/slugify';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 const C = {
@@ -596,9 +597,15 @@ const CreateBoutiqueScreen: React.FC = () => {
     if (step === 4 && !couleur)           { Alert.alert('Requis', 'Choisissez une couleur de façade.'); return; }
     if (step < TOTAL) { animateStep(1); setStep(s => s + 1); }
     else {
+      // Generate slug and public shop URL
+      const slug = slugify(boutiqueName);
+      const shopUrl = generateShopUrl(boutiqueName);
+
       // Save boutique data to context
       setBoutiqueData({
         nom: boutiqueName,
+        slug: slug,
+        shopUrl: shopUrl,
         description: description,
         logo: logo,
         website: website,
