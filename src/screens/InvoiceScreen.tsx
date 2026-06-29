@@ -167,7 +167,12 @@ Merci de votre confiance !
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
           <CloseIcon size={24} color={C.textDark} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Facture #{invoiceData.id}</Text>
+        <View style={s.headerBadgeContainer}>
+          <Text style={s.headerTitle}>Facture #{invoiceData.id}</Text>
+          <View style={s.proBadge}>
+            <Text style={s.proBadgeText}>PRO</Text>
+          </View>
+        </View>
         <View style={s.headerActions}>
           <TouchableOpacity onPress={handleShare} style={s.headerBtn}>
             <ShareIcon size={22} color={C.textDark} />
@@ -317,6 +322,22 @@ const s = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: C.textDark,
+  },
+  headerBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  proBadge: {
+    backgroundColor: C.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  proBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   headerActions: {
     flexDirection: 'row',

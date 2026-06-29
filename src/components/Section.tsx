@@ -15,7 +15,7 @@ export const Section: React.FC<SectionProps> = ({
   subtitle,
   action,
   children,
-  gap = '4',
+  gap = 4,
 }) => {
   return (
     <View style={s.container}>
@@ -30,7 +30,7 @@ export const Section: React.FC<SectionProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      <View style={{ gap: T.spacing[gap as any] }}>{children}</View>
+      <View style={{ gap: gap }}>{children}</View>
     </View>
   );
 };

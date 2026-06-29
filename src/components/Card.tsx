@@ -12,7 +12,7 @@ interface CardProps extends ViewProps {
 
 export const Card: React.FC<CardProps> = ({
   variant = 'default',
-  padding = '5',
+  padding = 4,
   gap,
   children,
   style,
@@ -21,13 +21,13 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const baseStyle = [
     s.base,
-    variant === 'default' && s.default,
-    variant === 'interactive' && s.interactive,
-    variant === 'elevated' && s.elevated,
-    { padding: T.spacing[padding as any] },
-    gap && { gap: T.spacing[gap as any] },
+    variant === 'default' ? s.default : null,
+    variant === 'interactive' ? s.interactive : null,
+    variant === 'elevated' ? s.elevated : null,
+    { padding: padding },
+    gap ? { gap: gap } : null,
     style,
-  ];
+  ].filter(Boolean);
 
   return (
     <View style={baseStyle} {...props}>

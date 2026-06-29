@@ -221,7 +221,12 @@ const BusinessDashboard: React.FC = () => {
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <View style={d.pageHead}>
         <View style={{ flex: 1 }}>
-          <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
+          <View style={d.headerBadgeContainer}>
+            <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
+            <View style={d.proBadge}>
+              <Text style={d.proBadgeText}>PRO</Text>
+            </View>
+          </View>
           <Text style={d.pageTitle}>{t('nav.home')}</Text>
           <Text style={d.pageSub}>{boutiqueData.nom || 'Ma boutique'} · aperçu en temps réel</Text>
         </View>
@@ -461,7 +466,10 @@ const d = StyleSheet.create({
 
   // Page header
   pageHead:    { flexDirection:'row', alignItems:'flex-start', justifyContent:'space-between', gap:12, zIndex:20 },
+  headerBadgeContainer: { flexDirection:'row', alignItems:'center', gap:8 },
   greet:       { fontSize:13, color:T.textSub, fontWeight:'600', marginBottom:3 },
+  proBadge:    { backgroundColor:T.orange, paddingHorizontal:8, paddingVertical:2, borderRadius:4 },
+  proBadgeText:{ color:'#fff', fontSize:10, fontWeight:'bold' },
   pageTitle:   { fontSize:26, fontWeight:'800', color:T.text, letterSpacing:-0.6 },
   pageSub:     { fontSize:13, color:T.muted, marginTop:3 },
   headActions: { flexDirection:'row', alignItems:'center', gap:10 },

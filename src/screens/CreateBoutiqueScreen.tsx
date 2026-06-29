@@ -9,6 +9,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useAuth } from '../contexts/AuthContext';
 import { BoutiqueService } from '../services/boutiqueService';
+import DomainService from '../services/domainService';
 import { slugify, generateShopUrl } from '../utils/slugify';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -30,119 +31,8 @@ type RootStackParamList = {
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const SECTEURS = [
-  { id: 'mode',         label: 'Mode & Vêtements',       emoji: '👗', color: '#EC4899' },
-  { id: 'electronique', label: 'Électronique & Tech',     emoji: '📱', color: '#3B82F6' },
-  { id: 'alimentaire',  label: 'Alimentation & Épicerie', emoji: '🛒', color: '#10B981' },
-  { id: 'beaute',       label: 'Beauté & Cosmétiques',    emoji: '💄', color: '#F59E0B' },
-  { id: 'maison',       label: 'Maison & Décoration',     emoji: '🏠', color: '#8B5CF6' },
-  { id: 'sport',        label: 'Sport & Fitness',         emoji: '⚽', color: '#14B8A6' },
-  { id: 'bijoux',       label: 'Bijoux & Accessoires',    emoji: '💍', color: '#F59E0B' },
-  { id: 'librairie',    label: 'Livres & Papeterie',      emoji: '📚', color: '#6366F1' },
-  { id: 'services',     label: 'Services & Artisanat',    emoji: '🔧', color: '#64748B' },
-  { id: 'autre',        label: 'Autre',                   emoji: '🏪', color: '#9CA3AF' },
-];
-
-interface PaysData { flag: string; nom: string; villes: string[] }
-const PAYS_DATA: PaysData[] = [
-  // ── Europe ───────────────────────────────────────────────────────────────────
-  { flag: '🇫🇷', nom: 'France',              villes: ['Paris','Lyon','Marseille','Toulouse','Nice','Bordeaux','Lille','Strasbourg','Nantes','Rennes','Montpellier','Grenoble','Rouen','Tours','Dijon'] },
-  { flag: '🇧🇪', nom: 'Belgique',            villes: ['Bruxelles','Liège','Anvers','Gand','Charleroi','Bruges','Namur','Louvain','Mons','Ostende'] },
-  { flag: '🇨🇭', nom: 'Suisse',             villes: ['Zurich','Genève','Bâle','Berne','Lausanne','Winterthur','Lucerne','St-Gall','Lugano'] },
-  { flag: '🇩🇪', nom: 'Allemagne',           villes: ['Berlin','Hambourg','Munich','Cologne','Francfort','Stuttgart','Düsseldorf','Leipzig','Dortmund','Nuremberg'] },
-  { flag: '🇪🇸', nom: 'Espagne',             villes: ['Madrid','Barcelone','Valence','Séville','Saragosse','Málaga','Murcie','Palma','Las Palmas','Bilbao'] },
-  { flag: '🇮🇹', nom: 'Italie',              villes: ['Rome','Milan','Naples','Turin','Palerme','Gênes','Bologne','Florence','Bari','Catane'] },
-  { flag: '🇵🇹', nom: 'Portugal',            villes: ['Lisbonne','Porto','Amadora','Braga','Setúbal','Coimbra','Funchal','Aveiro'] },
-  { flag: '🇳🇱', nom: 'Pays-Bas',            villes: ['Amsterdam','Rotterdam','La Haye','Utrecht','Eindhoven','Groningue','Tilbourg','Almère'] },
-  { flag: '🇬🇧', nom: 'Royaume-Uni',         villes: ['Londres','Birmingham','Manchester','Glasgow','Liverpool','Édimbourg','Bristol','Leeds','Sheffield'] },
-  { flag: '🇱🇺', nom: 'Luxembourg',          villes: ['Luxembourg','Esch-sur-Alzette','Differdange','Dudelange','Pétange'] },
-  { flag: '🇦🇹', nom: 'Autriche',            villes: ['Vienne','Graz','Linz','Salzbourg','Innsbruck','Klagenfurt'] },
-  { flag: '🇷🇴', nom: 'Roumanie',            villes: ['Bucarest','Cluj-Napoca','Timișoara','Iași','Constanța','Craiova'] },
-  { flag: '🇵🇱', nom: 'Pologne',             villes: ['Varsovie','Cracovie','Łódź','Wrocław','Poznań','Gdańsk','Szczecin'] },
-  { flag: '🇬🇷', nom: 'Grèce',              villes: ['Athènes','Thessalonique','Patras','Héraklion','Larissa','Volos'] },
-  // ── Afrique centrale & Congo ─────────────────────────────────────────────────
-  { flag: '🇨🇩', nom: 'Congo (RDC)',         villes: ['Kinshasa','Lubumbashi','Mbuji-Mayi','Goma','Bukavu','Kisangani','Kananga','Likasi','Kolwezi','Bunia','Uvira','Matadi'] },
-  { flag: '🇨🇬', nom: 'Congo (Brazzaville)', villes: ['Brazzaville','Pointe-Noire','Dolisie','Nkayi','Impfondo','Ouesso','Madingou','Owando'] },
-  { flag: '🇬🇦', nom: 'Gabon',              villes: ['Libreville','Port-Gentil','Franceville','Oyem','Moanda','Lambaréné','Tchibanga'] },
-  { flag: '🇨🇫', nom: 'Centrafrique',        villes: ['Bangui','Bimbo','Berbérati','Carnot','Bambari','Bouar','Bossangoa'] },
-  { flag: '🇨🇲', nom: 'Cameroun',           villes: ['Douala','Yaoundé','Garoua','Bamenda','Bafoussam','Ngaoundéré','Maroua','Bertoua','Edéa','Kumba'] },
-  { flag: '🇬🇶', nom: 'Guinée équatoriale',  villes: ['Malabo','Bata','Ebebiyin','Aconibe','Añisoc','Luba'] },
-  { flag: '🇧🇮', nom: 'Burundi',            villes: ['Bujumbura','Gitega','Ngozi','Rumonge','Muyinga','Ruyigi'] },
-  // ── Afrique de l'Ouest ───────────────────────────────────────────────────────
-  { flag: '🇨🇮', nom: "Côte d'Ivoire",      villes: ['Abidjan','Bouaké','Yamoussoukro','Daloa','Korhogo','San-Pédro','Divo','Gagnoa','Man','Abengourou'] },
-  { flag: '🇸🇳', nom: 'Sénégal',            villes: ['Dakar','Thiès','Touba','Kaolack','Saint-Louis','Ziguinchor','Mbour','Rufisque','Diourbel','Tambacounda'] },
-  { flag: '🇲🇱', nom: 'Mali',               villes: ['Bamako','Sikasso','Mopti','Koutiala','Kayes','Ségou','Gao','Kidal','Timbuktu'] },
-  { flag: '🇧🇫', nom: 'Burkina Faso',       villes: ['Ouagadougou','Bobo-Dioulasso','Koudougou','Ouahigouya','Banfora','Dédougou','Kaya'] },
-  { flag: '🇬🇳', nom: 'Guinée',             villes: ['Conakry','Nzérékoré','Kindia','Labé','Kankan','Mamou','Faranah','Siguiri'] },
-  { flag: '🇹🇬', nom: 'Togo',               villes: ['Lomé','Sokodé','Kara','Kpalimé','Atakpamé','Bassar','Tsévié','Aného'] },
-  { flag: '🇧🇯', nom: 'Bénin',              villes: ['Cotonou','Porto-Novo','Parakou','Djougou','Bohicon','Kandi','Abomey','Ouidah'] },
-  { flag: '🇳🇪', nom: 'Niger',              villes: ['Niamey','Zinder','Maradi','Agadez','Arlit','Tahoua','Dosso','Diffa'] },
-  { flag: '🇳🇬', nom: 'Nigeria',            villes: ['Lagos','Abuja','Kano','Ibadan','Kaduna','Benin City','Port Harcourt','Enugu','Aba','Onitsha'] },
-  { flag: '🇬🇭', nom: 'Ghana',              villes: ['Accra','Kumasi','Tamale','Takoradi','Tema','Cape Coast','Obuasi','Sunyani'] },
-  { flag: '🇸🇱', nom: 'Sierra Leone',       villes: ['Freetown','Bo','Kenema','Makeni','Koidu'] },
-  { flag: '🇱🇷', nom: 'Liberia',            villes: ['Monrovia','Gbarnga','Kakata','Bensonville','Harper'] },
-  { flag: '🇬🇼', nom: 'Guinée-Bissau',      villes: ['Bissau','Bafatá','Gabú','Bissorã','Bolama'] },
-  { flag: '🇬🇲', nom: 'Gambie',             villes: ['Banjul','Serekunda','Brikama','Bakau','Farafenni'] },
-  { flag: '🇨🇻', nom: 'Cap-Vert',           villes: ['Praia','Mindelo','Santa Maria','Assomada','São Filipe'] },
-  { flag: '🇲🇷', nom: 'Mauritanie',         villes: ['Nouakchott','Nouadhibou','Kiffa','Zouerate','Rosso','Kaédi'] },
-  // ── Afrique du Nord ───────────────────────────────────────────────────────────
-  { flag: '🇲🇦', nom: 'Maroc',              villes: ['Casablanca','Rabat','Marrakech','Fès','Tanger','Agadir','Meknès','Oujda','Kénitra','Tétouan'] },
-  { flag: '🇩🇿', nom: 'Algérie',            villes: ['Alger','Oran','Constantine','Annaba','Blida','Batna','Sétif','Sidi Bel Abbès','Tizi Ouzou','Béjaïa'] },
-  { flag: '🇹🇳', nom: 'Tunisie',            villes: ['Tunis','Sfax','Sousse','Bizerte','Gabès','Ariana','Gafsa','Monastir','Kairouan'] },
-  { flag: '🇱🇾', nom: 'Libye',              villes: ['Tripoli','Benghazi','Misrata','Zliten','Al-Khums','Syrte','Tobrouk'] },
-  { flag: '🇪🇬', nom: 'Égypte',             villes: ['Le Caire','Alexandrie','Gizeh','Louxor','Assouan','Port Saïd','Suez','Mansoura','Tanta'] },
-  { flag: '🇸🇩', nom: 'Soudan',             villes: ['Khartoum','Omdurman','Kassala','Port Soudan','Gedaref','Wad Medani','El-Obeid'] },
-  // ── Afrique de l'Est ─────────────────────────────────────────────────────────
-  { flag: '🇷🇼', nom: 'Rwanda',             villes: ['Kigali','Butare','Gitarama','Ruhengeri','Gisenyi','Byumba','Cyangugu'] },
-  { flag: '🇺🇬', nom: 'Ouganda',            villes: ['Kampala','Gulu','Lira','Mbarara','Jinja','Mbale','Entebbe'] },
-  { flag: '🇰🇪', nom: 'Kenya',              villes: ['Nairobi','Mombasa','Kisumu','Nakuru','Eldoret','Nyeri','Machakos'] },
-  { flag: '🇹🇿', nom: 'Tanzanie',           villes: ['Dar es Salaam','Zanzibar','Dodoma','Mwanza','Arusha','Mbeya','Morogoro'] },
-  { flag: '🇪🇹', nom: 'Éthiopie',           villes: ['Addis-Abeba','Dire Dawa','Mekele','Gondar','Adama','Hawassa','Bahir Dar'] },
-  { flag: '🇸🇴', nom: 'Somalie',            villes: ['Mogadiscio','Hargeisa','Bosaso','Berbera','Kismayo'] },
-  { flag: '🇩🇯', nom: 'Djibouti',           villes: ['Djibouti','Ali Sabieh','Dikhil','Arta','Obock'] },
-  { flag: '🇪🇷', nom: 'Érythrée',           villes: ['Asmara','Keren','Massawa','Assab','Mendefera'] },
-  { flag: '🇿🇲', nom: 'Zambie',             villes: ['Lusaka','Ndola','Kitwe','Kabwe','Chingola','Mufulira','Livingstone'] },
-  { flag: '🇿🇼', nom: 'Zimbabwe',           villes: ['Harare','Bulawayo','Chitungwiza','Mutare','Gweru','Kwekwe','Kadoma'] },
-  { flag: '🇲🇼', nom: 'Malawi',             villes: ['Lilongwe','Blantyre','Mzuzu','Zomba','Kasungu','Mangochi'] },
-  { flag: '🇲🇿', nom: 'Mozambique',         villes: ['Maputo','Beira','Nampula','Chimoio','Nacala','Quelimane','Tete'] },
-  { flag: '🇲🇬', nom: 'Madagascar',         villes: ['Antananarivo','Toamasina','Antsirabe','Fianarantsoa','Mahajanga','Toliara'] },
-  { flag: '🇰🇲', nom: 'Comores',            villes: ['Moroni','Mutsamudu','Domoni','Fomboni','Mitsamiouli'] },
-  { flag: '🇸🇨', nom: 'Seychelles',         villes: ['Victoria','Anse Boileau','Beau Vallon','Takamaka'] },
-  { flag: '🇲🇺', nom: 'Maurice',            villes: ['Port Louis','Beau Bassin','Vacoas','Curepipe','Quatre Bornes'] },
-  // ── Afrique du Sud ────────────────────────────────────────────────────────────
-  { flag: '🇿🇦', nom: 'Afrique du Sud',     villes: ['Johannesburg','Le Cap','Durban','Pretoria','Port Elizabeth','Bloemfontein','Soweto','Boksburg'] },
-  { flag: '🇦🇴', nom: 'Angola',             villes: ['Luanda','Huambo','Lobito','Benguela','Kuito','Namibe','Lubango'] },
-  { flag: '🇳🇦', nom: 'Namibie',            villes: ['Windhoek','Rundu','Walvis Bay','Swakopmund','Oshakati','Katima Mulilo'] },
-  { flag: '🇧🇼', nom: 'Botswana',           villes: ['Gaborone','Francistown','Maun','Serowe','Selebi-Phikwe'] },
-  { flag: '🇸🇿', nom: 'Eswatini',           villes: ['Mbabane','Manzini','Lobamba','Siteki','Nhlangano'] },
-  { flag: '🇱🇸', nom: 'Lesotho',            villes: ['Maseru','Teyateyaneng','Mafeteng','Hlotse','Mohale\'s Hoek'] },
-  // ── Amérique ─────────────────────────────────────────────────────────────────
-  { flag: '🇺🇸', nom: 'États-Unis',         villes: ['New York','Los Angeles','Chicago','Houston','Phoenix','Philadelphie','San Antonio','San Diego','Dallas','San José','Miami','Atlanta'] },
-  { flag: '🇨🇦', nom: 'Canada',             villes: ['Montréal','Toronto','Vancouver','Ottawa','Québec','Calgary','Edmonton','Winnipeg','Halifax','Regina'] },
-  { flag: '🇧🇷', nom: 'Brésil',             villes: ['São Paulo','Rio de Janeiro','Brasília','Salvador','Fortaleza','Belo Horizonte','Manaus','Curitiba','Recife','Porto Alegre'] },
-  { flag: '🇲🇽', nom: 'Mexique',            villes: ['Mexico','Guadalajara','Monterrey','Puebla','Tijuana','Ciudad Juárez','León','Zapopan','Mérida'] },
-  { flag: '🇦🇷', nom: 'Argentine',          villes: ['Buenos Aires','Córdoba','Rosario','Mendoza','La Plata','San Miguel de Tucumán','Mar del Plata'] },
-  { flag: '🇨🇴', nom: 'Colombie',           villes: ['Bogotá','Medellín','Cali','Barranquilla','Cartagena','Cúcuta','Bucaramanga','Pereira'] },
-  { flag: '🇵🇪', nom: 'Pérou',              villes: ['Lima','Arequipa','Trujillo','Chiclayo','Piura','Iquitos','Cusco','Huancayo'] },
-  { flag: '🇻🇪', nom: 'Venezuela',          villes: ['Caracas','Maracaibo','Valencia','Barquisimeto','Ciudad Guayana','Maracay'] },
-  { flag: '🇨🇱', nom: 'Chili',              villes: ['Santiago','Valparaíso','Concepción','Antofagasta','Viña del Mar','Temuco','Rancagua'] },
-  { flag: '🇭🇹', nom: 'Haïti',              villes: ['Port-au-Prince','Cap-Haïtien','Delmas','Pétion-Ville','Gonaïves','Les Cayes'] },
-  { flag: '🇫🇷', nom: 'Martinique',         villes: ['Fort-de-France','Le Lamentin','Le Robert','Sainte-Marie','Le François'] },
-  { flag: '🇫🇷', nom: 'Guadeloupe',         villes: ['Pointe-à-Pitre','Les Abymes','Baie-Mahault','Le Gosier','Sainte-Anne'] },
-  { flag: '🇫🇷', nom: 'La Réunion',         villes: ['Saint-Denis','Saint-Paul','Saint-Pierre','Le Tampon','Saint-Louis'] },
-  // ── Asie ─────────────────────────────────────────────────────────────────────
-  { flag: '🇨🇳', nom: 'Chine',              villes: ['Pékin','Shanghai','Chongqing','Guangzhou','Shenzhen','Tianjin','Wuhan','Chengdu','Xi\'an','Hangzhou'] },
-  { flag: '🇯🇵', nom: 'Japon',              villes: ['Tokyo','Osaka','Yokohama','Nagoya','Sapporo','Fukuoka','Kyoto','Kobe','Kawasaki','Hiroshima'] },
-  { flag: '🇮🇳', nom: 'Inde',               villes: ['Mumbai','Delhi','Bengaluru','Hyderabad','Ahmedabad','Chennai','Kolkata','Pune','Jaipur','Lucknow'] },
-  { flag: '🇦🇪', nom: 'Émirats arabes unis', villes: ['Dubaï','Abu Dhabi','Sharjah','Ajman','Ras al-Khaimah','Fujairah'] },
-  { flag: '🇸🇦', nom: 'Arabie saoudite',    villes: ['Riyad','Djeddah','La Mecque','Médine','Dammam','Taïf','Tabuk'] },
-  { flag: '🇹🇷', nom: 'Turquie',            villes: ['Istanbul','Ankara','Izmir','Bursa','Adana','Gaziantep','Konya','Antalya'] },
-  // ── Océanie ───────────────────────────────────────────────────────────────────
-  { flag: '🇦🇺', nom: 'Australie',          villes: ['Sydney','Melbourne','Brisbane','Perth','Adélaïde','Gold Coast','Canberra','Newcastle'] },
-  { flag: '🇳🇿', nom: 'Nouvelle-Zélande',   villes: ['Auckland','Wellington','Christchurch','Hamilton','Tauranga','Dunedin'] },
-  // ── Autre ─────────────────────────────────────────────────────────────────────
-  { flag: '🌍', nom: 'Autre',               villes: ['Autre ville'] },
-];
+const SECTEURS = DomainService.getAllDomains();
+const PAYS_DATA = DomainService.getAllPays();
 
 const COULEURS = [
   { hex: '#FF6B35', label: 'Corail'   },
@@ -566,6 +456,7 @@ const CreateBoutiqueScreen: React.FC = () => {
   const [secteur, setSecteur]     = useState('');
   const [paysNom, setPaysNom]     = useState('');
   const [villeNom, setVilleNom]   = useState('');
+  const [quartierNom, setQuartierNom] = useState('');
   const [couleur, setCouleur]     = useState(C.accent);
   const [currency, setCurrency]   = useState('EUR');
   const [focused, setFocused]     = useState<string | null>(null);
@@ -587,6 +478,9 @@ const CreateBoutiqueScreen: React.FC = () => {
   const villesItems: DropdownItem[] = paysData
     ? paysData.villes.map(v => ({ label: v, value: v }))
     : [];
+  const quartiersItems: DropdownItem[] = (paysData && villeNom)
+    ? (paysData as any).quartiers?.[villeNom]?.map((q: string) => ({ label: q, value: q })) || []
+    : [];
   const paysItems: DropdownItem[] = PAYS_DATA.map(p => ({ label: p.nom, value: p.nom, meta: p.flag }));
 
   const animateStep = (dir: 1 | -1) => {
@@ -597,7 +491,7 @@ const CreateBoutiqueScreen: React.FC = () => {
   const next = async () => {
     if (step === 1 && !boutiqueName.trim()) { Alert.alert('Requis', 'Donnez un nom à votre boutique.'); return; }
     if (step === 2 && !secteur)            { Alert.alert('Requis', 'Choisissez votre secteur.'); return; }
-    if (step === 3 && (!paysNom || !villeNom)) { Alert.alert('Requis', 'Choisissez un pays et une ville.'); return; }
+    if (step === 3 && (!paysNom || !villeNom || !quartierNom)) { Alert.alert('Requis', 'Choisissez un pays, une ville et un quartier.'); return; }
     if (step === 4 && !couleur)           { Alert.alert('Requis', 'Choisissez une couleur de façade.'); return; }
     if (step < TOTAL) { animateStep(1); setStep(s => s + 1); }
     else {
@@ -627,6 +521,7 @@ const CreateBoutiqueScreen: React.FC = () => {
           secteur: secteur,
           pays: paysNom,
           ville: villeNom,
+          quartier: quartierNom,
           couleur: couleur,
           currency: currency,
           timezone: 'Europe/Paris',
@@ -654,6 +549,7 @@ const CreateBoutiqueScreen: React.FC = () => {
           secteur: secteur,
           pays: paysNom,
           ville: villeNom,
+          quartier: quartierNom,
           couleur: couleur,
           currency: currency,
           timezone: 'Europe/Paris',
@@ -761,7 +657,7 @@ const CreateBoutiqueScreen: React.FC = () => {
                   </View>
                 )}
               </View>
-              <Text style={[s.sectorLabel, active && { color: sec.color, fontWeight: '700' }]}>{sec.label}</Text>
+              <Text style={[s.sectorLabel, active && { color: sec.color, fontWeight: '700' }]}>{sec.nom}</Text>
             </TouchableOpacity>
           );
         })}
@@ -793,11 +689,20 @@ const CreateBoutiqueScreen: React.FC = () => {
         placeholder={paysNom ? 'Sélectionnez votre ville...' : 'Choisissez d\'abord un pays'}
         value={villeNom}
         items={villesItems}
-        onSelect={setVilleNom}
+        onSelect={(v) => { setVilleNom(v); setQuartierNom(''); }}
         disabled={!paysNom}
       />
 
-      {paysNom && villeNom && (
+      <Dropdown
+        label="Quartier"
+        placeholder={villeNom ? 'Sélectionnez votre quartier...' : 'Choisissez d\'abord une ville'}
+        value={quartierNom}
+        items={quartiersItems}
+        onSelect={setQuartierNom}
+        disabled={!villeNom}
+      />
+
+      {paysNom && villeNom && quartierNom && (
         <View style={s.locationConfirm}>
           <View style={s.locationConfirmIcon}>
             <Text style={{ fontSize: 20 }}>{PAYS_DATA.find(p => p.nom === paysNom)?.flag}</Text>
@@ -856,7 +761,7 @@ const CreateBoutiqueScreen: React.FC = () => {
         <FacadePreview couleur={couleur} nom={boutiqueName}/>
         <View style={s.facadeInfo}>
           <View style={[s.facadePill, { backgroundColor: couleur + '18', borderColor: couleur + '40', borderWidth: 1 }]}>
-            <Text style={[s.facadePillText, { color: couleur }]}>{selectedSec?.emoji} {selectedSec?.label || 'Secteur'}</Text>
+            <Text style={[s.facadePillText, { color: couleur }]}>{selectedSec?.emoji} {selectedSec?.nom || 'Secteur'}</Text>
           </View>
           <Text style={s.facadeLocation}>📍 {villeNom || 'Ville'}, {paysNom || 'Pays'}</Text>
         </View>

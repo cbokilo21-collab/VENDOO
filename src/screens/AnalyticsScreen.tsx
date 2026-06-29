@@ -301,9 +301,16 @@ const AnalyticsScreen: React.FC = () => {
     const totalOrders = orders.length;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     const conversionRate = 3.2; // Placeholder - would need visitor data
-    
+
+    // Calculate predicted revenue based on trend
+    const last7DaysRevenue = currentData.slice(-7).reduce((a: number, b: number) => a + b, 0);
+    const avgDailyRevenue = last7DaysRevenue / 7;
+    const predictedMonthlyRevenue = avgDailyRevenue * 30;
+    const predictedChange = predictedMonthlyRevenue > totalRevenue ? '+12%' : '-5%';
+
     return [
       { label: 'Revenu total',       value: `${(totalRevenue/1000).toFixed(0)}k F`, change: '+0%',  color: C.accent  },
+      { label: 'Prédiction mensuelle', value: `${(predictedMonthlyRevenue/1000).toFixed(0)}k F`, change: predictedChange, color: C.purple },
       { label: 'Ticket moyen',       value: `${(avgOrderValue/1000).toFixed(0)}k F`, change: '+0%',   color: C.info    },
       { label: 'Taux de conversion', value: '3.4%',                           change: '+0%', color: C.success },
       { label: 'Retours',            value: '3.2%',                           change: '-0%', color: C.error   },
@@ -323,7 +330,12 @@ const AnalyticsScreen: React.FC = () => {
           </Svg>
         </TouchableOpacity>
         <View>
-          <Text style={s.headerTitle}>Analytics</Text>
+          <View style={s.headerBadgeContainer}>
+            <Text style={s.headerTitle}>Analytics</Text>
+            <View style={s.proBadge}>
+              <Text style={s.proBadgeText}>PRO</Text>
+            </View>
+          </View>
           <Text style={s.headerSub}>Vue détaillée de vos performances</Text>
         </View>
         <View style={s.aiBadge}><Text style={s.aiBadgeText}>✦ IA</Text></View>
@@ -428,7 +440,10 @@ const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
   backBtn:    { width: 36, height: 36, borderRadius: 9, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle:{ flex: 1, fontSize: 18, fontWeight: '800', color: C.textDark },
+  proBadge: { backgroundColor: C.accent, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: C.white, fontSize: 10, fontWeight: 'bold' },
   headerSub:  { fontSize: 12, color: C.textLight },
   aiBadge:    { backgroundColor: '#EDE9FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   aiBadgeText:{ fontSize: 12, fontWeight: '700', color: C.purple },

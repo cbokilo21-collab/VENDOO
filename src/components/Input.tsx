@@ -28,10 +28,10 @@ export const Input = React.forwardRef<TextInput, InputProps>(
 
     const containerStyle: ViewStyle[] = [
       s.container,
-      variant === 'filled' && s.filled,
-      error && s.error,
-      focused && s.focused,
-    ];
+      variant === 'filled' ? s.filled : null,
+      error ? s.error : null,
+      focused ? s.focused : null,
+    ].filter(Boolean) as ViewStyle[];
 
     return (
       <View>

@@ -205,7 +205,12 @@ const BoutiqueAppearanceScreen: React.FC = () => {
           </Svg>
         </TouchableOpacity>
         <View>
-          <Text style={s.headerTitle}>Apparence de la boutique</Text>
+          <View style={s.headerBadgeContainer}>
+            <Text style={s.headerTitle}>Apparence de la boutique</Text>
+            <View style={s.proBadge}>
+              <Text style={s.proBadgeText}>PRO</Text>
+            </View>
+          </View>
           <Text style={s.headerSub}>Ce que voient vos clients dans le quartier</Text>
         </View>
         <TouchableOpacity style={[s.saveBtn, isSaving && s.saveBtnDisabled]} onPress={handleSave} disabled={isSaving}>
@@ -382,7 +387,10 @@ const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
   backBtn:    { width: 36, height: 36, borderRadius: 9, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle:{ flex: 1, fontSize: 16, fontWeight: '800', color: C.textDark },
+  proBadge: { backgroundColor: C.accent, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: C.white, fontSize: 10, fontWeight: 'bold' },
   headerSub:  { fontSize: 12, color: C.textLight },
   saveBtn:    { backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 9 },
   saveBtnDisabled: { backgroundColor: C.muted },

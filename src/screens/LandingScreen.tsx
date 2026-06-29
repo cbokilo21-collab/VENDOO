@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput,
   Dimensions, KeyboardAvoidingView, Platform, StatusBar, Animated,
-  ImageBackground, Pressable, Modal, Image, Easing
+  ImageBackground, Pressable, Modal, Image, Easing, ActivityIndicator
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { UserService } from '../services/userService';
@@ -306,26 +307,6 @@ const VENDOO_MODULES = [
   },
 ];
 
-const PRODUCTS = [
-  { id: 1, name: 'T-Shirt Premium', price: 29.99, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop', category: 'Vêtements', rating: 4.5 },
-  { id: 2, name: 'Jean Slim Fit', price: 59.99, image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=400&fit=crop', category: 'Vêtements', rating: 4.8 },
-  { id: 3, name: 'Sneakers Urban', price: 89.99, image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop', category: 'Chaussures', rating: 4.7 },
-  { id: 4, name: 'Sac à Dos', price: 45.99, image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=400&fit=crop', category: 'Accessoires', rating: 4.3 },
-];
-
-const QUARTIERS = [
-  { id: 1, name: 'Yopougon', stores: 45, icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png' },
-  { id: 2, name: 'Plateau', stores: 38, icon: 'https://cdn-icons-png.flaticon.com/512/2618/2618435.png' },
-  { id: 3, name: 'Cocody', stores: 52, icon: 'https://cdn-icons-png.flaticon.com/512/2989/2989955.png' },
-  { id: 4, name: 'Marcory', stores: 67, icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png' },
-];
-
-const STORES = [
-  { id: 1, name: 'Superette Express', quartier: 'Yopougon', type: 'Superette', rating: 4.5, icon: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png' },
-  { id: 2, name: 'Boulangerie du Coin', quartier: 'Yopougon', type: 'Boulangerie', rating: 4.8, icon: 'https://cdn-icons-png.flaticon.com/512/2919/2919577.png' },
-  { id: 3, name: 'Mode Urbaine', quartier: 'Plateau', type: 'Boutique', rating: 4.7, icon: 'https://cdn-icons-png.flaticon.com/512/2618/2618435.png' },
-  { id: 4, name: 'Épicerie Fine', quartier: 'Cocody', type: 'Épicerie', rating: 4.6, icon: 'https://cdn-icons-png.flaticon.com/512/2919/2919589.png' },
-];
 
 const STORE_ADVANTAGES = [
   { id: 1, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png', title: 'Prix Locaux', description: 'Prix adaptés au marché mondial sans intermédiaire ni marge excessive' },
@@ -560,6 +541,14 @@ export default function LandingScreen() {
   const [selectedQuartier, setSelectedQuartier] = useState<number | null>(null);
   const [cartCount, setCartCount] = useState(0);
 
+  // Fetch real data from Firestore
+  const { data: products, loading: productsLoading } = useRealtimeCollection<any>('products', {
+    enabled: true,
+  });
+  const { data: boutiques, loading: boutiquesLoading } = useRealtimeCollection<any>('boutiques', {
+    enabled: true,
+  });
+
   // Scroll animation tracking
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -675,7 +664,12 @@ export default function LandingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.logo}>Vendoo</Text>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logo}>Vendoo</Text>
+            <View style={styles.logoBadge}>
+              <Text style={styles.logoBadgeText}>PRO</Text>
+            </View>
+          </View>
           
           <View style={styles.tabSelector}>
             <AnimatedButton 
@@ -806,13 +800,23 @@ export default function LandingScreen() {
         {selectedTab === 'online' ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Produits Populaires</Text>
-            <View style={styles.productsGrid}>
-              {PRODUCTS.map((product, index) => (
-                <RotateIn key={product.id} delay={index * 150} style={styles.productCard}>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => viewProductShop(product)}
-                  >
+            {productsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.orange} />
+                <Text style={styles.loadingText}>Chargement des produits...</Text>
+              </View>
+            ) : products.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Aucun produit disponible</Text>
+              </View>
+            ) : (
+              <View style={styles.productsGrid}>
+                {products.slice(0, 8).map((product: any, index: number) => (
+                  <RotateIn key={product.id} delay={index * 150} style={styles.productCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => viewProductShop(product)}
+                    >
                     <ImageBackground
                       source={{ uri: product.image }}
                       style={styles.productImage}
@@ -836,6 +840,7 @@ export default function LandingScreen() {
                 </RotateIn>
               ))}
             </View>
+            )}
           </View>
         ) : (
           <View style={styles.section}>
@@ -843,21 +848,31 @@ export default function LandingScreen() {
             <Text style={styles.sectionSubtitle}>
               Découvrez les boutiques de votre quartier
             </Text>
-            <View style={styles.productsGrid}>
-              {STORES.map((store, index) => (
-                <RotateIn key={store.id} delay={index * 150} style={styles.productCard}>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => viewProductShop({ id: store.id, name: store.name, image: store.icon, price: '0', rating: store.rating })}
-                  >
-                    <View style={styles.productImage}>
-                      <View style={styles.productRatingBadge}>
-                        <Text style={styles.productRatingText}>⭐ {store.rating}</Text>
+            {boutiquesLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.orange} />
+                <Text style={styles.loadingText}>Chargement des boutiques...</Text>
+              </View>
+            ) : boutiques.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Aucune boutique disponible</Text>
+              </View>
+            ) : (
+              <View style={styles.productsGrid}>
+                {boutiques.slice(0, 8).map((store: any, index: number) => (
+                  <RotateIn key={store.id} delay={index * 150} style={styles.productCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => viewProductShop({ id: store.id, name: store.nom, image: store.emoji, price: '0', rating: store.note })}
+                    >
+                      <View style={styles.productImage}>
+                        <View style={styles.productRatingBadge}>
+                          <Text style={styles.productRatingText}>⭐ {store.note}</Text>
+                        </View>
+                        <Text style={{ fontSize: 48, alignSelf: 'center', marginTop: 20 }}>{store.emoji}</Text>
                       </View>
-                      <Image source={{ uri: store.icon }} style={{ width: 80, height: 80, alignSelf: 'center', marginTop: 20 }} />
-                    </View>
-                    <View style={styles.productInfo}>
-                      <Text style={styles.productName}>{store.name}</Text>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName}>{store.nom}</Text>
                       <Text style={styles.productPrice}>{store.type}</Text>
                       <Text style={{ fontSize: 14, color: COLORS.orange, marginBottom: 8 }}>{store.quartier}</Text>
                       <AnimatedButton
@@ -871,11 +886,15 @@ export default function LandingScreen() {
                 </RotateIn>
               ))}
             </View>
+            )}
           </View>
         )}
 
         {/* CTA Final */}
         <View style={styles.finalCTA}>
+          <View style={styles.finalCTABadge}>
+            <Text style={styles.finalCTABadgeText}>PRO</Text>
+          </View>
           <Text style={styles.finalCTATitle}>Prêt à rejoindre Vendoo?</Text>
           <Text style={styles.finalCTASubtitle}>
             Des milliers de commerçants et particuliers nous font déjà confiance
@@ -1124,6 +1143,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.orange,
   },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoBadge: {
+    backgroundColor: COLORS.orange,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  logoBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   tabSelector: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceAlt,
@@ -1337,21 +1372,19 @@ const styles = StyleSheet.create({
   storeType: {
     fontSize: 14,
     color: COLORS.textLight,
+    marginBottom: 4,
   },
   storeRating: {
-    backgroundColor: COLORS.orange,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  storeRatingText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.white,
+    color: COLORS.orange,
   },
-  storesGrid: {
+  featuresSection: {
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+    backgroundColor: COLORS.white,
+  },
+  featuresGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 24,
     maxWidth: 1200,
     alignSelf: 'center',
@@ -1697,6 +1730,25 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
   },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: COLORS.textLight,
+    marginTop: 12,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.textLight,
+  },
   productCard: {
     minWidth: 280,
     maxWidth: 380,
@@ -1969,6 +2021,18 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
+  finalCTABadge: {
+    backgroundColor: COLORS.orange,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 16,
+  },
+  finalCTABadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   finalCTATitle: {
     fontSize: 42,
     fontWeight: '800',
@@ -2016,113 +2080,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.white,
-  },
-  quartiersGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 24,
-    maxWidth: 1200,
-    alignSelf: 'center',
-  },
-  quartierCard: {
-    width: (W - 120) / 2,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  quartierCardInner: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  quartierCardActive: {
-    borderColor: COLORS.orange,
-    backgroundColor: COLORS.surfaceAlt,
-  },
-  quartierEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  quartierIconImage: {
-    width: 48,
-    height: 48,
-    marginBottom: 12,
-  },
-  quartierName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  quartierCount: {
-    fontSize: 14,
-    color: COLORS.textLight,
-  },
-  storesSection: {
-    marginTop: 40,
-    maxWidth: 1200,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  storesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  clearSelection: {
-    fontSize: 14,
-    color: COLORS.orange,
-    fontWeight: '500',
-  },
-  storeCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-  },
-  storeEmoji: {
-    fontSize: 48,
-    marginRight: 20,
-  },
-  storeIconImage: {
-    width: 48,
-    height: 48,
-    marginRight: 20,
-  },
-  storeInfo: {
-    flex: 1,
-  },
-  storeName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  storeType: {
-    fontSize: 14,
-    color: COLORS.textLight,
-    marginBottom: 4,
-  },
-  storeRating: {
-    fontSize: 14,
-    color: COLORS.orange,
-  },
-  featuresSection: {
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-    backgroundColor: COLORS.white,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    gap: 24,
-    maxWidth: 1200,
-    alignSelf: 'center',
   },
   featureCard: {
     flex: 1,

@@ -7,13 +7,13 @@ interface DividerProps {
   marginVertical?: keyof typeof T.spacing;
 }
 
-export const Divider: React.FC<DividerProps> = ({ variant = 'default', marginVertical = '5' }) => {
+export const Divider: React.FC<DividerProps> = ({ variant = 'default', marginVertical = 4 }) => {
   return (
     <View
       style={[
         s.divider,
         variant === 'light' && s.light,
-        { marginVertical: T.spacing[marginVertical as any] },
+        { marginVertical: marginVertical },
       ]}
     />
   );

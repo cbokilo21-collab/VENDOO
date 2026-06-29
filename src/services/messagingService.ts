@@ -1,4 +1,5 @@
 import { FirestoreService } from './firestoreService';
+import { where } from 'firebase/firestore';
 
 export interface Message {
   id?: string;
@@ -47,7 +48,7 @@ export const MessagingService = {
    */
   async getBuyerConversations(buyerId: string): Promise<Conversation[]> {
     return FirestoreService.query<Conversation>('conversations', [
-      { field: 'buyerId', operator: '==', value: buyerId },
+      where('buyerId', '==', buyerId),
     ]);
   },
 
@@ -56,7 +57,7 @@ export const MessagingService = {
    */
   async getStoreConversations(storeId: string): Promise<Conversation[]> {
     return FirestoreService.query<Conversation>('conversations', [
-      { field: 'storeId', operator: '==', value: storeId },
+      where('storeId', '==', storeId),
     ]);
   },
 
@@ -66,8 +67,8 @@ export const MessagingService = {
   async getOrCreateConversation(buyerId: string, buyerName: string, storeId: string, storeName: string): Promise<Conversation> {
     // Essayer de trouver une conversation existante
     const existing = await FirestoreService.query<Conversation>('conversations', [
-      { field: 'buyerId', operator: '==', value: buyerId },
-      { field: 'storeId', operator: '==', value: storeId },
+      where('buyerId', '==', buyerId),
+      where('storeId', '==', storeId),
     ]);
 
     if (existing.length > 0) {
@@ -120,7 +121,7 @@ export const MessagingService = {
    */
   async getMessages(conversationId: string): Promise<Message[]> {
     return FirestoreService.query<Message>('messages', [
-      { field: 'conversationId', operator: '==', value: conversationId },
+      where('conversationId', '==', conversationId),
     ]);
   },
 
@@ -152,7 +153,7 @@ export const MessagingService = {
    */
   subscribeToMessages(conversationId: string, callback: (messages: Message[]) => void) {
     return FirestoreService.onQuery<Message>('messages', [
-      { field: 'conversationId', operator: '==', value: conversationId },
+      where('conversationId', '==', conversationId),
     ], callback);
   },
 
@@ -161,7 +162,7 @@ export const MessagingService = {
    */
   subscribeToBuyerConversations(buyerId: string, callback: (conversations: Conversation[]) => void) {
     return FirestoreService.onQuery<Conversation>('conversations', [
-      { field: 'buyerId', operator: '==', value: buyerId },
+      where('buyerId', '==', buyerId),
     ], callback);
   },
 
@@ -170,7 +171,7 @@ export const MessagingService = {
    */
   subscribeToStoreConversations(storeId: string, callback: (conversations: Conversation[]) => void) {
     return FirestoreService.onQuery<Conversation>('conversations', [
-      { field: 'storeId', operator: '==', value: storeId },
+      where('storeId', '==', storeId),
     ], callback);
   },
 };

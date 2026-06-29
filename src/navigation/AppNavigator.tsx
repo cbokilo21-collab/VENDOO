@@ -63,6 +63,7 @@ import PaymentSettingsScreen from '../screens/PaymentSettingsScreen';
 import SponsorshipScreen     from '../screens/SponsorshipScreen';
 
 // Quartier / social
+import CountrySelectionScreen   from '../screens/CountrySelectionScreen';
 import QuartierScreen           from '../screens/QuartierScreen';
 import BoutiqueCatalogScreen    from '../screens/BoutiqueCatalogScreen';
 import MarketplaceScreen        from '../screens/MarketplaceScreen';
@@ -110,6 +111,7 @@ const AppNavigator: React.FC = () => {
               <>
                 <Stack.Screen name="BuyerDashboard"       component={withWebShell(BuyerDashboard,        'BuyerDashboard')} />
                 <Stack.Screen name="Marketplace"           component={withWebShell(MarketplaceScreen,     'Marketplace')} />
+                <Stack.Screen name="CountrySelection"     component={withWebShell(CountrySelectionScreen, 'CountrySelection')} />
                 <Stack.Screen name="QuartierScreen"        component={withWebShell(QuartierScreen,      'QuartierScreen')} />
                 <Stack.Screen name="MyOrders"             component={withWebShell(MyOrdersScreen,       'MyOrders')} />
                 <Stack.Screen name="OrderTracking"        component={withWebShell(OrderTrackingScreen,  'OrderTracking')} />
@@ -189,6 +191,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="BoutiqueTutorial"   component={BoutiqueTutorialScreen} />
 
             {/* ── Quartier ────────────────────────────────────────────── */}
+            <Stack.Screen name="CountrySelection"   component={CountrySelectionScreen} />
             <Stack.Screen name="QuartierScreen"     component={QuartierScreen}           />
 
             {/* ── Boutique management ──────────────────────────────────── */}

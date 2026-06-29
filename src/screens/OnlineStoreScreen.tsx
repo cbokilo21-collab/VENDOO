@@ -582,9 +582,14 @@ const OnlineStoreScreen: React.FC = () => {
     <View style={s.root}>
       {/* Top Bar */}
       <View style={s.topBar}>
-        <Text style={s.topBarTitle}>Boutique en ligne</Text>
+        <View style={s.headerBadgeContainer}>
+          <Text style={s.topBarTitle}>Boutique en ligne</Text>
+          <View style={s.proBadge}>
+            <Text style={s.proBadgeText}>PRO</Text>
+          </View>
+        </View>
         <View style={s.topBarActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={s.topBarBtn}
             onPress={() => setSidebarCollapsed(!sidebarCollapsed)}
           >
@@ -697,6 +702,9 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: C.border, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
   topBarTitle: { fontSize: 22, fontWeight: '800', color: C.textDark, letterSpacing: -0.5 },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  proBadge: { backgroundColor: C.orange, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   topBarActions: { flexDirection: 'row', gap: 12 },
   topBarBtn: {
     width: 40, height: 40, borderRadius: 10, backgroundColor: C.bg,

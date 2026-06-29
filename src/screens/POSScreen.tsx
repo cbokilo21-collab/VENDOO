@@ -645,7 +645,12 @@ const POSScreen: React.FC = () => {
         <View style={s.appHeaderLogo}>
           <View style={s.logoIcon}><Text style={s.logoIconText}>SP</Text></View>
           <View>
-            <Text style={s.logoTitle}>SwiftPos</Text>
+            <View style={s.headerBadgeContainer}>
+              <Text style={s.logoTitle}>SwiftPos</Text>
+              <View style={s.proBadge}>
+                <Text style={s.proBadgeText}>PRO</Text>
+              </View>
+            </View>
             <Text style={s.logoSub}>Caisse intelligente</Text>
           </View>
         </View>
@@ -952,7 +957,10 @@ const s = StyleSheet.create({
   appHeaderLogo: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   logoIcon:      { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   logoIconText:  { color: C.white, fontSize: 18, fontWeight: '900' },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoTitle:     { fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: -0.5 },
+  proBadge: { backgroundColor: C.white, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: C.accent, fontSize: 10, fontWeight: 'bold' },
   logoSub:       { fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '500', marginTop: 1 },
   actifBadge:    { backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
   actifText:     { color: C.white, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },

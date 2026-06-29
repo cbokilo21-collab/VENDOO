@@ -4,7 +4,7 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { MarketingAutomationService } from '../services/MarketingAutomationService';
+import { marketingAutomationService } from '../services/MarketingAutomationService';
 
 const C = {
   navy: '#FF6B35', bg: '#FFF7F3', surface: '#FFFFFF', border: '#E5E7EB', borderFocus: '#FF6B35',
@@ -36,7 +36,7 @@ const statusCfg: Record<CampaignStatus, { label: string; color: string }> = {
   ended:     { label: 'Terminée',   color: C.muted   },
 };
 
-const marketingService = new MarketingAutomationService();
+const marketingService = marketingAutomationService;
 
 const StatMini: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
   <View style={sm.wrap}>
@@ -111,7 +111,12 @@ const MarketingScreen: React.FC = () => {
           </Svg>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Marketing</Text>
+          <View style={s.headerBadgeContainer}>
+            <Text style={s.headerTitle}>Marketing</Text>
+            <View style={s.proBadge}>
+              <Text style={s.proBadgeText}>PRO</Text>
+            </View>
+          </View>
           <Text style={s.headerSub}>Promos · Campagnes · Conversion</Text>
         </View>
         <View style={s.aiPill}><Text style={s.aiPillText}>✦ IA</Text></View>
@@ -364,7 +369,10 @@ const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
   backBtn:    { width: 36, height: 36, borderRadius: 9, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle:{ flex: 1, fontSize: 18, fontWeight: '800', color: C.textDark },
+  proBadge: { backgroundColor: C.accent, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: C.white, fontSize: 10, fontWeight: 'bold' },
   headerSub:  { fontSize: 12, color: C.textLight },
   aiPill:     { backgroundColor: '#EDE9FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   aiPillText: { fontSize: 12, fontWeight: '700', color: C.purple },

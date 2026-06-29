@@ -66,7 +66,7 @@ const BuyerDashboard: React.FC = () => {
 
   const quickActions = [
     { label: 'Explorer',      sub: 'Tous les produits',  icon: 'M3 3h18v18H3zM3 9h18M9 9v12', tint: T.orange,  route: 'Marketplace' },
-    { label: 'Les quartiers', sub: 'Boutiques de quartier', icon: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16', tint: T.violet,  route: 'QuartierScreen' },
+    { label: 'Les quartiers', sub: 'Boutiques de quartier', icon: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16', tint: T.violet,  route: 'CountrySelection' },
     { label: 'Mes commandes', sub: 'Suivi & historique', icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2', tint: T.success, route: 'MyOrders' },
     { label: 'Messages',      sub: 'Vos échanges',       icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', tint: T.info,    route: 'Messages' },
   ];

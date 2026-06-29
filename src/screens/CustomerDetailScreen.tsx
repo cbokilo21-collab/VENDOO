@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform,
+  Platform, ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { T, shadow, radius } from '../theme';
 import { ORDER_STATUS_META } from '../services/orderService';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
 
 type Nav = NativeStackNavigationProp<any>;
 
@@ -25,26 +26,16 @@ const SEGMENT_META = {
   inactif: { label: 'Inactif',  color: '#94A3B8', soft: '#F1F5F9', icon: '💤' },
 };
 
-const DEMO_ORDERS_BY_CLIENT: Record<string, any[]> = {
-  'Sophie Martin': [
-    { id: '#1048', montant: 182_500, status: 'delivered', date: '28 juin', items: 3 },
-    { id: '#1032', montant:  97_000, status: 'delivered', date: '15 juin', items: 1 },
-  ],
-  'Lucas Bernard': [
-    { id: '#1047', montant: 340_000, status: 'processing', date: '28 juin', items: 5 },
-  ],
-  'Emma Dubois': [
-    { id: '#1046', montant: 97_000,  status: 'pending',   date: '27 juin', items: 1 },
-    { id: '#1022', montant: 45_000,  status: 'delivered', date: '2 juin',  items: 2 },
-    { id: '#1010', montant: 120_000, status: 'delivered', date: '20 mai',  items: 4 },
-  ],
-};
-
 const CustomerDetailScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<{ CustomerDetail: { customer: any } }, 'CustomerDetail'>>();
   const customer = route.params?.customer;
   const [activeTab, setActiveTab] = useState<'orders' | 'insights'>('orders');
+
+  // Fetch orders from Firestore in real-time
+  const { data: orders, loading } = useRealtimeCollection<any>('orders', {
+    enabled: true,
+  });
 
   if (!customer) {
     return (
@@ -56,8 +47,8 @@ const CustomerDetailScreen: React.FC = () => {
 
   const seg = SEGMENT_META[customer.segment as keyof typeof SEGMENT_META] ?? SEGMENT_META.nouveau;
   const initials = customer.nom.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const clientOrders = DEMO_ORDERS_BY_CLIENT[customer.nom] ?? [];
-  const ltv = customer.total ?? clientOrders.reduce((s: number, o: any) => s + o.montant, 0);
+  const clientOrders = orders.filter((o: any) => o.client === customer.nom);
+  const ltv = customer.total ?? clientOrders.reduce((s: number, o: any) => s + (o.total || o.montant || 0), 0);
   const avgCart = clientOrders.length ? ltv / clientOrders.length : 0;
 
   const AVATAR_COLORS = [T.orange, T.info, T.success, '#7C3AED', T.warning];
@@ -70,7 +61,12 @@ const CustomerDetailScreen: React.FC = () => {
         <TouchableOpacity style={st.backBtn} onPress={() => navigation.goBack()}>
           <Ic d="M19 12H5M12 19l-7-7 7-7" s={20} c={T.text} />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>Profil client</Text>
+        <View style={st.headerBadgeContainer}>
+          <Text style={st.headerTitle}>Profil client</Text>
+          <View style={st.proBadge}>
+            <Text style={st.proBadgeText}>PRO</Text>
+          </View>
+        </View>
         <View style={{ width: 38 }} />
       </View>
 
@@ -209,7 +205,10 @@ const st = StyleSheet.create({
     backgroundColor: T.surface, borderBottomWidth: 1, borderBottomColor: T.border,
   },
   backBtn:     { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, borderColor: T.border, alignItems: 'center', justifyContent: 'center' },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 17, fontWeight: '800', color: T.text },
+  proBadge: { backgroundColor: T.orange, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   scroll:      { padding: 16, gap: 14, paddingBottom: 48 },
 
   profileCard: { backgroundColor: T.surface, borderRadius: radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: T.border, ...shadow.card },

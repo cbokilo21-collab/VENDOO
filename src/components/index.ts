@@ -16,8 +16,8 @@ export { AdvancedFacade } from './AdvancedFacade';
 
 // Existing components (maintain backward compat)
 export { ScreenHeader } from './ScreenHeader';
-export { BottomNavigation } from './BottomNavigation';
-export { WebShell } from './WebShell';
-export { FacadeBoutique } from './FacadeBoutique';
-export { RingChart } from './RingChart';
-export { RueCommercante } from './RueCommercante';
+export { default as BottomNavigation } from './BottomNavigation';
+export { default as WebShell } from './WebShell';
+export { default as FacadeBoutique } from './FacadeBoutique';
+export { default as RingChart } from './RingChart';
+export { default as RueCommercante } from './RueCommercante';

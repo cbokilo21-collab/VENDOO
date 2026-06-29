@@ -86,7 +86,12 @@ const OrdersScreen: React.FC = () => {
       {/* Page heading */}
       <FadeIn delay={0} style={st.pageHead}>
         <View style={{ flex: 1 }}>
-          <Text style={st.pageTitle}>{t('orders.title')}</Text>
+          <View style={st.headerBadgeContainer}>
+            <Text style={st.pageTitle}>{t('orders.title')}</Text>
+            <View style={st.proBadge}>
+              <Text style={st.proBadgeText}>PRO</Text>
+            </View>
+          </View>
           <Text style={st.pageSub}>
             {loading ? t('common.loading') : `${stats.total} ${t('orders.orders')} · ${(stats.revenue / 1000).toFixed(0)}k F ${t('orders.collected')}`}
           </Text>
@@ -233,7 +238,10 @@ const st = StyleSheet.create({
   errorText: { fontSize: 13, fontWeight: '600' },
 
   pageHead:  { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  headerBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   pageTitle: { fontSize: 26, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
+  proBadge: { backgroundColor: T.orange, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  proBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   pageSub:   { fontSize: 13, color: T.textSub, marginTop: 3 },
   newBtn:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.orange, paddingHorizontal: 14, height: 40, borderRadius: 11, shadowColor: T.orange, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   newBtnText:{ fontSize: 13, fontWeight: '700', color: '#fff' },

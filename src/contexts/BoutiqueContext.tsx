@@ -19,6 +19,7 @@ interface BoutiqueData {
   secteur: string;
   pays: string;
   ville: string;
+  quartier?: string;
   couleur: string;
   chatbot?: {
     enabled: boolean;

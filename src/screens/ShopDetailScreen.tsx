@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
-  useWindowDimensions, Image, Modal, FlatList, Animated, Dimensions,
+  useWindowDimensions, Image, Modal, FlatList, Animated, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { T, spacing, shadows } from '../theme';
 import { Button, Badge, Card, Section, Divider } from '../components';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 type Nav = NativeStackNavigationProp<any>;
@@ -51,18 +52,18 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'reviews'>('overview');
 
   const isOpen = shop.statut === 'ouvert';
-  const mockReviews = [
-    { id: '1', auteur: 'Sophie M.', note: 5, texte: 'Excellente boutique ! Service très rapide.', date: 'Il y a 2j' },
-    { id: '2', auteur: 'Pierre D.', note: 4, texte: 'Bons produits, prix corrects.', date: 'Il y a 1s' },
-    { id: '3', auteur: 'Emma T.', note: 5, texte: '⭐⭐⭐⭐⭐ À recommander !', date: 'Il y a 5j' },
-  ];
 
-  const mockProducts = [
-    { id: '1', nom: 'Produit Vedette', prix: 199, emoji: '🎁' },
-    { id: '2', nom: 'Article Best-seller', prix: 129, emoji: '⭐' },
-    { id: '3', nom: 'Nouvelle arrivée', prix: 89, emoji: '🆕' },
-    { id: '4', nom: 'Promotion', prix: 49, emoji: '🏷️' },
-  ];
+  // Fetch real data from Firestore
+  const { data: reviews, loading: reviewsLoading } = useRealtimeCollection<any>('reviews', {
+    enabled: true,
+  });
+  const { data: products, loading: productsLoading } = useRealtimeCollection<any>('products', {
+    enabled: true,
+  });
+
+  // Filter reviews and products for this shop
+  const shopReviews = reviews.filter((r: any) => r.shopId === shop.id);
+  const shopProducts = products.filter((p: any) => p.shopId === shop.id);
 
   return (
     <View style={s.root}>
@@ -116,7 +117,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
           </View>
         </Section>
 
-        <Divider marginVertical="5" />
+        <Divider marginVertical={4} />
 
         {/* Contact & Social Section */}
         <Section title="Coordonnées">
@@ -166,7 +167,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
           )}
         </Section>
 
-        <Divider marginVertical="5" />
+        <Divider marginVertical={4} />
 
         {/* Hours Section */}
         {shop.horaires && (
@@ -181,7 +182,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
                 ))}
               </View>
             </Section>
-            <Divider marginVertical="5" />
+            <Divider marginVertical={4} />
           </>
         )}
 
@@ -205,7 +206,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <Section title="Point Fort">
-            <Card variant="elevated" padding="5">
+            <Card variant="elevated" padding={4}>
               <Text style={s.bestsellerLabel}>⭐ Best-seller</Text>
               <Text style={s.bestsellerValue}>{shop.bestseller || 'Article populaire'}</Text>
             </Card>
@@ -213,33 +214,55 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
         )}
 
         {activeTab === 'products' && (
-          <Section title={`${shop.produits} Produits`}>
-            <View style={s.productGrid}>
-              {mockProducts.map(p => (
-                <Card key={p.id} variant="interactive" padding="4" gap="2" style={s.productCard}>
-                  <Text style={s.productEmoji}>{p.emoji}</Text>
-                  <Text style={s.productName}>{p.nom}</Text>
-                  <Text style={s.productPrice}>€{p.prix}</Text>
-                </Card>
-              ))}
-            </View>
+          <Section title={`${shopProducts.length} Produits`}>
+            {productsLoading ? (
+              <View style={s.loadingContainer}>
+                <ActivityIndicator size="large" color="#FF6B35" />
+                <Text style={s.loadingText}>Chargement des produits...</Text>
+              </View>
+            ) : shopProducts.length === 0 ? (
+              <View style={s.emptyContainer}>
+                <Text style={s.emptyText}>Aucun produit disponible</Text>
+              </View>
+            ) : (
+              <View style={s.productGrid}>
+                {shopProducts.map((p: any) => (
+                  <Card key={p.id} variant="interactive" padding={4} gap={2} style={s.productCard}>
+                    <Text style={s.productEmoji}>{p.emoji || '📦'}</Text>
+                    <Text style={s.productName}>{p.nom}</Text>
+                    <Text style={s.productPrice}>€{p.prix}</Text>
+                  </Card>
+                ))}
+              </View>
+            )}
           </Section>
         )}
 
         {activeTab === 'reviews' && (
-          <Section title={`Avis (${shop.avis})`}>
-            {mockReviews.map(review => (
-              <Card key={review.id} variant="interactive" padding="4" gap="2">
-                <View style={s.reviewHeader}>
-                  <View>
-                    <Text style={s.reviewAuteur}>{review.auteur}</Text>
-                    <Text style={s.reviewDate}>{review.date}</Text>
+          <Section title={`Avis (${shopReviews.length})`}>
+            {reviewsLoading ? (
+              <View style={s.loadingContainer}>
+                <ActivityIndicator size="large" color="#FF6B35" />
+                <Text style={s.loadingText}>Chargement des avis...</Text>
+              </View>
+            ) : shopReviews.length === 0 ? (
+              <View style={s.emptyContainer}>
+                <Text style={s.emptyText}>Aucun avis disponible</Text>
+              </View>
+            ) : (
+              shopReviews.map((review: any) => (
+                <Card key={review.id} variant="interactive" padding={4} gap={2}>
+                  <View style={s.reviewHeader}>
+                    <View>
+                      <Text style={s.reviewAuteur}>{review.auteur}</Text>
+                      <Text style={s.reviewDate}>{review.date}</Text>
+                    </View>
+                    <Text style={s.reviewRating}>⭐ {review.note}</Text>
                   </View>
-                  <Text style={s.reviewRating}>⭐ {review.note}</Text>
-                </View>
-                <Text style={s.reviewText}>{review.texte}</Text>
-              </Card>
-            ))}
+                  <Text style={s.reviewText}>{review.texte}</Text>
+                </Card>
+              ))
+            )}
           </Section>
         )}
 
@@ -267,7 +290,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ route }) => {
               />
             </>
           ) : (
-            <Card variant="elevated" padding="5">
+            <Card variant="elevated" padding={4}>
               <Text style={s.closedMessage}>
                 Cette boutique est actuellement fermée. Revenez plus tard !
               </Text>
@@ -532,6 +555,25 @@ const s = StyleSheet.create({
     color: T.error,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    ...T.body,
+    color: T.textSub,
+    marginTop: 12,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...T.body,
+    color: T.textSub,
   },
 });
 
