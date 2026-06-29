@@ -4,6 +4,8 @@ import { View, Text, ScrollView } from 'react-native';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { BoutiqueProvider } from './src/contexts/BoutiqueContext';
 import { ProductsProvider } from './src/contexts/ProductsContext';
+import { LanguageProvider } from './src/contexts/LanguageContext';
+import { CurrencyProvider } from './src/contexts/CurrencyContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
@@ -39,14 +41,18 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <BoutiqueProvider>
-          <ProductsProvider>
-            <AppNavigator />
-            <StatusBar style="dark" />
-          </ProductsProvider>
-        </BoutiqueProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <CurrencyProvider>
+          <AuthProvider>
+            <BoutiqueProvider>
+              <ProductsProvider>
+                <AppNavigator />
+                <StatusBar style="dark" />
+              </ProductsProvider>
+            </BoutiqueProvider>
+          </AuthProvider>
+        </CurrencyProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }
