@@ -107,18 +107,21 @@ export function useRealtimeDocument<T = Record<string, any>>(
 }
 
 // Convenience: real-time dashboard KPIs derived from orders
-export function useDashboardKPIs(userId: string | null) {
+export function useDashboardKPIs(userId: string | null, boutiqueId?: string | null) {
+  // Use boutiqueId if available, otherwise fall back to userId for backward compatibility
+  const idFilter = boutiqueId || userId;
+  
   const { data: orders, loading } = useRealtimeCollection<any>('orders', {
-    constraints: userId ? [where('userId', '==', userId)] : [],
-    enabled: !!userId,
+    constraints: idFilter ? [where('boutiqueId', '==', idFilter)] : [],
+    enabled: !!idFilter,
   });
   const { data: customers } = useRealtimeCollection<any>('customers', {
-    constraints: userId ? [where('userId', '==', userId)] : [],
-    enabled: !!userId,
+    constraints: idFilter ? [where('userId', '==', idFilter)] : [],
+    enabled: !!idFilter,
   });
   const { data: products } = useRealtimeCollection<any>('products', {
-    constraints: userId ? [where('userId', '==', userId)] : [],
-    enabled: !!userId,
+    constraints: idFilter ? [where('boutique_id', '==', idFilter)] : [],
+    enabled: !!idFilter,
   });
 
   const today = new Date();

@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import BottomNavigation from '../components/BottomNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const C = {
   navy: '#FF6B35', sideMuted: '#64748B',
@@ -93,6 +94,7 @@ const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?
 
 const CustomersScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { t } = useLanguage();
   const isDesktop = Dimensions.get('window').width >= 1024;
   const [search, setSearch] = useState('');
   const [filterSegment, setFilterSegment] = useState<Segment | 'all'>('all');
@@ -118,7 +120,7 @@ const CustomersScreen: React.FC = () => {
 
   const openChat = (customer: Customer) => {
     setChatCustomer(customer);
-    setMessages([{ text: `Bonjour ${customer.nom} ! Comment puis-je vous aider ?`, isMe: false }]);
+    setMessages([{ text: `${t('customers.hello')} ${customer.nom} ! ${t('customers.howCanHelp')}`, isMe: false }]);
     setShowChat(true);
   };
 
@@ -127,7 +129,7 @@ const CustomersScreen: React.FC = () => {
       setMessages([...messages, { text: message, isMe: true }]);
       setMessage('');
       setTimeout(() => {
-        setMessages(prev => [...prev, { text: 'Merci pour votre message ! Je vous répondrai rapidement.', isMe: false }]);
+        setMessages(prev => [...prev, { text: t('customers.autoReply'), isMe: false }]);
       }, 1000);
     }
   };
@@ -136,8 +138,8 @@ const CustomersScreen: React.FC = () => {
     <ScrollView style={s.content} contentContainerStyle={s.inner} showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
       <AnimatedCard delay={0} style={s.pageHeader}>
-        <Text style={s.pageTitle}>Clients</Text>
-        <Text style={s.pageSubtitle}>{customers.length} clients enregistrés</Text>
+        <Text style={s.pageTitle}>{t('customers.title')}</Text>
+        <Text style={s.pageSubtitle}>{customers.length} {t('customers.registered')}</Text>
       </AnimatedCard>
 
       {/* Search */}
@@ -145,7 +147,7 @@ const CustomersScreen: React.FC = () => {
         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth={2}>
           <Circle cx="11" cy="11" r="8"/><Path d="m21 21-4.35-4.35" strokeLinecap="round"/>
         </Svg>
-        <TextInput style={s.searchInput} placeholder="Rechercher un client..." placeholderTextColor={C.muted} value={search} onChangeText={setSearch} 
+        <TextInput style={s.searchInput} placeholder={t('customers.searchPlaceholder')} placeholderTextColor={C.muted} value={search} onChangeText={setSearch} 
       autoCorrect={false}
       autoCapitalize="none"
       returnKeyType="search"
@@ -160,7 +162,7 @@ const CustomersScreen: React.FC = () => {
           {(['all', 'vip', 'fidele', 'nouveau', 'inactif'] as const).map(seg => (
             <TouchableOpacity key={seg} style={[s.chip, filterSegment === seg && s.chipActive]} onPress={() => setFilterSegment(seg)}>
               <Text style={[s.chipText, filterSegment === seg && s.chipTextActive]}>
-                {seg === 'all' ? 'Tous' : segmentConfig[seg].label}
+                {seg === 'all' ? t('customers.all') : segmentConfig[seg].label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -190,7 +192,7 @@ const CustomersScreen: React.FC = () => {
                   </View>
                 </View>
                 <Text style={s.customerEmail}>{c.email}</Text>
-                <Text style={s.customerMeta}>{c.commandes} commande{c.commandes !== 1 ? 's' : ''} · Total: €{c.total} · Dernier: {c.dernierAchat}</Text>
+                <Text style={s.customerMeta}>{c.commandes} {c.commandes !== 1 ? t('customers.orders') : t('customers.order')} · {t('customers.total')}: €{c.total} · {t('customers.last')}: {c.dernierAchat}</Text>
                 {c.insight && (
                   <View style={s.insightBox}>
                     <Text style={s.insightIcon}>✦</Text>

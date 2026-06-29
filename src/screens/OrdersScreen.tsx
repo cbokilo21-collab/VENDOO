@@ -9,6 +9,7 @@ import { where } from 'firebase/firestore';
 import Svg, { Path, Circle } from 'react-native-svg';
 import BottomNavigation from '../components/BottomNavigation';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { useRealtimeCollection } from '../hooks/useRealtimeData';
 import { T, shadow, radius } from '../theme';
 import { OrderStatus, ORDER_STATUS_META, Order } from '../services/orderService';
@@ -36,60 +37,19 @@ const FadeIn: React.FC<{ delay?: number; children: React.ReactNode; style?: any 
   return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;
 };
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
-const DEMO_ORDERS = [
-  {
-    id: '#1048', orderNumber: '#1048', client: 'Sophie Martin',  email: 'sophie@gmail.com',
-    montant: 182_500, total: 182_500, status: 'delivered' as OrderStatus,
-    date: '28 juin', items: [{ nom: 'Sneakers ÉL', prix: 60_800, quantity: 3, emoji: '👟' }],
-    trackingNumber: 'FR123456789', carrier: 'Colissimo',
-    shippingAddress: '12 Rue de la Paix, 75001 Paris', paymentMethod: 'card',
-  },
-  {
-    id: '#1047', orderNumber: '#1047', client: 'Lucas Bernard',  email: 'lucas@gmail.com',
-    montant: 340_000, total: 340_000, status: 'processing' as OrderStatus,
-    date: '28 juin', items: [{ nom: 'Veste Bomber', prix: 68_000, quantity: 5, emoji: '🧥' }],
-    fraudRisk: 'high', paymentMethod: 'cash',
-  },
-  {
-    id: '#1046', client: 'Emma Dubois', email: 'emma@gmail.com',
-    montant: 97_000, total: 97_000, status: 'pending' as OrderStatus,
-    date: '27 juin', items: [{ nom: 'Sac Cuir', prix: 97_000, quantity: 1, emoji: '👜' }],
-    paymentMethod: 'mobile',
-  },
-  {
-    id: '#1045', client: 'Nathan Petit', email: 'nathan@gmail.com',
-    montant: 213_200, total: 213_200, status: 'shipped' as OrderStatus,
-    date: '26 juin', items: [{ nom: 'Écouteurs BT', prix: 53_300, quantity: 4, emoji: '🎧' }],
-    trackingNumber: 'FR987654321', carrier: 'DHL',
-    shippingAddress: '45 Av. des Champs, 75008 Paris', paymentMethod: 'card',
-  },
-  {
-    id: '#1044', client: 'Chloé Moreau',  email: 'chloe@gmail.com',
-    montant: 455_000, total: 455_000, status: 'paid' as OrderStatus,
-    date: '25 juin', items: [{ nom: 'Montre Classique', prix: 65_000, quantity: 7, emoji: '⌚' }],
-    paymentMethod: 'card',
-  },
-  {
-    id: '#1043', client: 'Tom Laurent',   email: 'tom@gmail.com',
-    montant: 68_000, total: 68_000, status: 'cancelled' as OrderStatus,
-    date: '24 juin', items: [{ nom: 'T-Shirt', prix: 34_000, quantity: 2, emoji: '👕' }],
-    paymentMethod: 'cash',
-  },
-];
-
-const STATUS_FILTERS: { key: OrderStatus | 'all'; label: string }[] = [
-  { key: 'all',        label: 'Toutes' },
-  { key: 'pending',    label: 'En attente' },
-  { key: 'processing', label: 'En cours' },
-  { key: 'shipped',    label: 'Expédié' },
-  { key: 'delivered',  label: 'Livré' },
-  { key: 'cancelled',  label: 'Annulé' },
+const getStatusFilters = (t: any) => [
+  { key: 'all' as const,        label: t('orders.all') },
+  { key: 'pending' as const,    label: t('orders.pending') },
+  { key: 'processing' as const, label: t('orders.processing') },
+  { key: 'shipped' as const,    label: t('orders.shipped') },
+  { key: 'delivered' as const,  label: t('orders.delivered') },
+  { key: 'cancelled' as const,  label: t('orders.cancelled') },
 ];
 
 const OrdersScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
   const [search, setSearch] = useState('');
 
@@ -99,22 +59,19 @@ const OrdersScreen: React.FC = () => {
     enabled: !!user?.uid,
   });
 
-  // Fall back to demo if no orders yet
-  const displayOrders = orders.length > 0 ? orders : DEMO_ORDERS;
-
-  const filtered = displayOrders.filter(o => {
+  const filtered = orders.filter((o: Order) => {
     const matchStatus = filter === 'all' || o.status === filter;
     const q = search.toLowerCase();
-    const oId = (o as any).id || (o as any).orderNumber || '#0';
+    const oId = o.orderNumber || o.id || '#0';
     const matchSearch = !q || o.client.toLowerCase().includes(q) || oId.includes(q);
     return matchStatus && matchSearch;
   });
 
   const stats = {
-    total:   displayOrders.length,
-    revenue: displayOrders.filter(o => !['cancelled','refunded'].includes(o.status)).reduce((s, o) => s + (o.total || (o as any).montant || 0), 0),
-    pending: displayOrders.filter(o => o.status === 'pending' || o.status === 'processing').length,
-    done:    displayOrders.filter(o => o.status === 'delivered').length,
+    total:   orders.length,
+    revenue: orders.filter((o: Order) => !['cancelled','refunded'].includes(o.status)).reduce((s: number, o: Order) => s + (o.total || 0), 0),
+    pending: orders.filter((o: Order) => o.status === 'pending' || o.status === 'processing').length,
+    done:    orders.filter((o: Order) => o.status === 'delivered').length,
   };
 
   const content = (
@@ -122,31 +79,31 @@ const OrdersScreen: React.FC = () => {
       {/* Error banner */}
       {error && (
         <FadeIn delay={0} style={[st.errorBanner, { backgroundColor: T.errorSoft }]}>
-          <Text style={[st.errorText, { color: T.error }]}>⚠ Erreur: {error}</Text>
+          <Text style={[st.errorText, { color: T.error }]}>⚠ {t('common.error')}: {error}</Text>
         </FadeIn>
       )}
 
       {/* Page heading */}
       <FadeIn delay={0} style={st.pageHead}>
         <View style={{ flex: 1 }}>
-          <Text style={st.pageTitle}>Commandes</Text>
+          <Text style={st.pageTitle}>{t('orders.title')}</Text>
           <Text style={st.pageSub}>
-            {loading ? 'Synchronisation...' : `${stats.total} commandes · ${(stats.revenue / 1000).toFixed(0)}k F encaissés`}
+            {loading ? t('common.loading') : `${stats.total} ${t('orders.orders')} · ${(stats.revenue / 1000).toFixed(0)}k F ${t('orders.collected')}`}
           </Text>
         </View>
         <TouchableOpacity style={st.newBtn} onPress={() => navigation.navigate('POS' as any)} activeOpacity={0.85}>
           <Ic d="M12 5v14M5 12h14" s={16} c="#fff" w={2.5} />
-          <Text style={st.newBtnText}>Nouvelle vente</Text>
+          <Text style={st.newBtnText}>{t('orders.newSale')}</Text>
         </TouchableOpacity>
       </FadeIn>
 
       {/* KPI row */}
       <FadeIn delay={60} style={st.kpiRow}>
         {[
-          { label: 'Total', value: stats.total.toString(),              icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2', tint: T.infoSoft,    ink: T.info    },
-          { label: 'Revenus', value: `${(stats.revenue/1_000_000).toFixed(1)}M F`, icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', tint: T.successSoft, ink: T.success },
-          { label: 'En cours', value: stats.pending.toString(),          icon: 'M12 8v4l3 3M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z', tint: T.warningSoft, ink: T.warning },
-          { label: 'Livrés', value: stats.done.toString(),               icon: 'M20 6L9 17l-5-5', tint: T.successSoft, ink: T.success },
+          { label: t('orders.total'), value: stats.total.toString(),              icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2', tint: T.infoSoft,    ink: T.info    },
+          { label: t('orders.revenue'), value: `${(stats.revenue/1_000_000).toFixed(1)}M F`, icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', tint: T.successSoft, ink: T.success },
+          { label: t('orders.inProgress'), value: stats.pending.toString(),          icon: 'M12 8v4l3 3M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z', tint: T.warningSoft, ink: T.warning },
+          { label: t('orders.delivered'), value: stats.done.toString(),               icon: 'M20 6L9 17l-5-5', tint: T.successSoft, ink: T.success },
         ].map((k) => (
           <View key={k.label} style={st.kpi}>
             <View style={[st.kpiIcon, { backgroundColor: k.tint }]}>
@@ -163,7 +120,7 @@ const OrdersScreen: React.FC = () => {
         <Ic d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" s={16} c={T.muted} />
         <TextInput
           style={st.searchInput}
-          placeholder="Rechercher une commande ou un client…"
+          placeholder={t('orders.searchPlaceholder')}
           placeholderTextColor={T.muted}
           value={search}
           onChangeText={setSearch}
@@ -178,10 +135,10 @@ const OrdersScreen: React.FC = () => {
       {/* Filters */}
       <FadeIn delay={130}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow}>
-          {STATUS_FILTERS.map(f => {
+          {getStatusFilters(t).map(f => {
             const active = filter === f.key;
             const meta = f.key !== 'all' ? ORDER_STATUS_META[f.key as OrderStatus] : null;
-            const count = f.key === 'all' ? displayOrders.length : displayOrders.filter(o => o.status === f.key).length;
+            const count = f.key === 'all' ? orders.length : orders.filter((o: Order) => o.status === f.key).length;
             return (
               <TouchableOpacity
                 key={f.key}
@@ -204,13 +161,13 @@ const OrdersScreen: React.FC = () => {
         {loading ? (
           <View style={st.emptyBox}>
             <ActivityIndicator size="large" color={T.orange} />
-            <Text style={st.emptyText}>Chargement des commandes...</Text>
+            <Text style={st.emptyText}>{t('orders.loadingOrders')}</Text>
           </View>
         ) : filtered.length === 0 ? (
           <View style={st.emptyBox}>
             <Ic d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2" s={32} c={T.muted} />
-            <Text style={st.emptyText}>Aucune commande trouvée</Text>
-            <Text style={st.emptySub}>Modifiez votre filtre ou lancez une nouvelle vente</Text>
+            <Text style={st.emptyText}>{t('orders.noOrdersFound')}</Text>
+            <Text style={st.emptySub}>{t('orders.noOrdersSub')}</Text>
           </View>
         ) : filtered.map((o, i) => {
           const meta = ORDER_STATUS_META[o.status];
@@ -235,12 +192,12 @@ const OrdersScreen: React.FC = () => {
                   <Text style={st.orderNum}>{oId}</Text>
                   {o.fraudRisk === 'high' && (
                     <View style={st.fraudPill}>
-                      <Text style={st.fraudText}>⚠ Risque</Text>
+                      <Text style={st.fraudText}>⚠ {t('orders.risk')}</Text>
                     </View>
                   )}
                 </View>
                 <Text style={st.clientName}>{o.client}</Text>
-                <Text style={st.orderMeta}>{o.items?.length ?? 1} article{(o.items?.length ?? 1) > 1 ? 's' : ''} · {formattedDate}</Text>
+                <Text style={st.orderMeta}>{o.items?.length ?? 1} {(o.items?.length ?? 1) > 1 ? t('orders.items') : t('orders.item')} · {formattedDate}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
                 <Text style={st.amount}>{(oTotal / 1000).toFixed(0)}k F</Text>

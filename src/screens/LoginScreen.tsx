@@ -7,6 +7,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { auth } from '../services/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useLanguage } from '../contexts/LanguageContext';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 
 const C = {
@@ -39,6 +40,7 @@ const EyeIcon = ({ visible }: { visible: boolean }) => (
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { t } = useLanguage();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd]   = useState(false);
@@ -47,45 +49,45 @@ const LoginScreen: React.FC = () => {
   const isDesktop = Dimensions.get('window').width >= 768;
 
   const handleLogin = async () => {
-    if (!email || !password) { Alert.alert('Champs requis', 'Veuillez remplir tous les champs'); return; }
+    if (!email || !password) { Alert.alert(t('login.requiredFields'), t('login.fillAllFields')); return; }
     setLoading(true);
     try { await signInWithEmailAndPassword(auth, email, password); }
-    catch { Alert.alert('Erreur de connexion', 'Email ou mot de passe incorrect'); setLoading(false); }
+    catch { Alert.alert(t('login.loginError'), t('login.invalidCredentials')); setLoading(false); }
   };
 
   const handleForgot = async () => {
-    if (!email) { Alert.alert('Email requis', 'Entrez votre adresse email pour réinitialiser le mot de passe'); return; }
+    if (!email) { Alert.alert(t('login.emailRequired'), t('login.enterEmail')); return; }
     try {
       await sendPasswordResetEmail(auth, email);
-      Alert.alert('Email envoyé ✓', `Un lien de réinitialisation a été envoyé à ${email}`);
+      Alert.alert(t('login.emailSent'), `${t('login.resetLinkSent')} ${email}`);
     } catch {
-      Alert.alert('Erreur', 'Email introuvable ou invalide');
+      Alert.alert(t('login.emailError'), t('login.emailNotFound'));
     }
   };
 
   const features = [
-    { icon: '📦', label: 'Inventaire en temps réel' },
-    { icon: '📊', label: 'Analytics avancés' },
-    { icon: '🤖', label: 'Insights IA intégrés' },
-    { icon: '🌍', label: 'Multi-boutique & multi-devise' },
+    { icon: '📦', label: t('login.feature1') },
+    { icon: '📊', label: t('login.feature2') },
+    { icon: '🤖', label: t('login.feature3') },
+    { icon: '🌍', label: t('login.feature4') },
   ];
   const stats = [
-    { value: '12K+', label: 'Marchands actifs' },
-    { value: '98%',  label: 'Satisfaction client' },
-    { value: '3.2M', label: 'Commandes traitées' },
+    { value: '12K+', label: t('login.stat1') },
+    { value: '98%',  label: t('login.stat2') },
+    { value: '3.2M', label: t('login.stat3') },
   ];
 
   const formContent = (
     <View style={s.formCard}>
-      <Text style={s.formTitle}>Connexion</Text>
-      <Text style={s.formSubtitle}>Bienvenue. Entrez vos identifiants.</Text>
+      <Text style={s.formTitle}>{t('login.title')}</Text>
+      <Text style={s.formSubtitle}>{t('login.subtitle')}</Text>
 
       {/* Email */}
       <View style={s.fieldGroup}>
-        <Text style={s.label}>Adresse email</Text>
+        <Text style={s.label}>{t('login.email')}</Text>
         <TextInput
           style={[s.input, focused === 'email' && s.inputF]}
-          placeholder="vous@exemple.com"
+          placeholder={t('login.emailPlaceholder')}
           placeholderTextColor={C.muted}
           value={email}
           onChangeText={setEmail}
@@ -103,15 +105,15 @@ const LoginScreen: React.FC = () => {
       {/* Password */}
       <View style={s.fieldGroup}>
         <View style={s.labelRow}>
-          <Text style={s.label}>Mot de passe</Text>
+          <Text style={s.label}>{t('login.password')}</Text>
           <TouchableOpacity onPress={handleForgot}>
-            <Text style={s.forgotLink}>Mot de passe oublié ?</Text>
+            <Text style={s.forgotLink}>{t('login.forgotPassword')}</Text>
           </TouchableOpacity>
         </View>
         <View style={s.inputWrap}>
           <TextInput
             style={[s.inputInner, focused === 'pass' && s.inputF]}
-            placeholder="••••••••"
+            placeholder={t('login.passwordPlaceholder')}
             placeholderTextColor={C.muted}
             value={password}
             onChangeText={setPassword}
@@ -132,41 +134,40 @@ const LoginScreen: React.FC = () => {
 
       {/* Login CTA */}
       <TouchableOpacity style={s.btn} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
-        {loading ? <ActivityIndicator color={C.white} /> : <Text style={s.btnText}>Se connecter</Text>}
+        {loading ? <ActivityIndicator color={C.white} /> : <Text style={s.btnText}>{t('login.loginBtn')}</Text>}
       </TouchableOpacity>
 
       <View style={s.dividerRow}>
-        <View style={s.divLine} /><Text style={s.divText}>ou</Text><View style={s.divLine} />
+        <View style={s.divLine} /><Text style={s.divText}>{t('login.or')}</Text><View style={s.divLine} />
       </View>
 
       <TouchableOpacity style={s.btnOutline} onPress={() => navigation.navigate('Register')} activeOpacity={0.85}>
-        <Text style={s.btnOutlineText}>Créer un compte gratuit</Text>
+        <Text style={s.btnOutlineText}>{t('login.registerBtn')}</Text>
       </TouchableOpacity>
 
       {/* ── Mentions légales obligatoires ─────────────────────────────── */}
       <View style={s.legalBlock}>
         <View style={s.legalSep} />
-        <Text style={s.legalTitle}>Informations légales</Text>
+        <Text style={s.legalTitle}>{t('login.legalInfo')}</Text>
         <Text style={s.legalText}>
-          En vous connectant, vous acceptez nos{' '}
-          <Text style={s.legalLink}>Conditions Générales d'Utilisation</Text>
-          {' '}et notre{' '}
-          <Text style={s.legalLink}>Politique de Confidentialité</Text>.
+          {t('login.legalText')}{' '}
+          <Text style={s.legalLink}>{t('login.terms')}</Text>
+          {' '}{t('login.and')}{' '}
+          <Text style={s.legalLink}>{t('login.privacy')}</Text>.
         </Text>
         <Text style={s.legalText}>
-          Vos données sont traitées conformément au RGPD. Vendoo SAS — RCS Paris — SIRET 000 000 000 00000.
-          Responsable de traitement : Vendoo SAS, 75000 Paris, France.
+          {t('login.gdpr')}
         </Text>
         <View style={s.legalRow}>
-          <TouchableOpacity><Text style={s.legalLink}>CGU</Text></TouchableOpacity>
+          <TouchableOpacity><Text style={s.legalLink}>{t('login.cgu')}</Text></TouchableOpacity>
           <Text style={s.legalDot}>·</Text>
-          <TouchableOpacity><Text style={s.legalLink}>Confidentialité</Text></TouchableOpacity>
+          <TouchableOpacity><Text style={s.legalLink}>{t('login.confidentiality')}</Text></TouchableOpacity>
           <Text style={s.legalDot}>·</Text>
-          <TouchableOpacity><Text style={s.legalLink}>Mentions légales</Text></TouchableOpacity>
+          <TouchableOpacity><Text style={s.legalLink}>{t('login.legal')}</Text></TouchableOpacity>
           <Text style={s.legalDot}>·</Text>
-          <TouchableOpacity><Text style={s.legalLink}>Cookies</Text></TouchableOpacity>
+          <TouchableOpacity><Text style={s.legalLink}>{t('login.cookies')}</Text></TouchableOpacity>
         </View>
-        <Text style={s.legalCopy}>© 2026 Vendoo SAS. Tous droits réservés.</Text>
+        <Text style={s.legalCopy}>{t('login.copyright')}</Text>
       </View>
     </View>
   );
@@ -183,8 +184,8 @@ const LoginScreen: React.FC = () => {
               <Text style={s.logoName}>Vendoo</Text>
             </View>
             <View style={s.brandBody}>
-              <Text style={s.headline}>Votre commerce,{'\n'}sans friction.</Text>
-              <Text style={s.subline}>La plateforme tout-en-un pour gérer ventes, clients et stocks — avec l'IA comme co-pilote.</Text>
+              <Text style={s.headline}>{t('login.headline')}</Text>
+              <Text style={s.subline}>{t('login.subline')}</Text>
               <View style={s.featureList}>
                 {features.map((f, i) => (
                   <View key={i} style={s.featureRow}>

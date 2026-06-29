@@ -225,7 +225,7 @@ const POSScreen: React.FC = () => {
       const id = await OrderService.create(user.uid, {
         client: 'Client comptoir',
         email: boutiqueData.email || '',
-        boutiqueId: boutiqueData.nom || undefined,
+        boutiqueId: boutiqueData.id || user.uid, // Use boutiqueId if available, otherwise userId
         items: cart.map(item => ({
           productId: item.product.id,
           nom: item.product.nom,

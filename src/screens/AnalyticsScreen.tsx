@@ -4,6 +4,10 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, Anima
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Rect, Circle, Line, Text as SvgText, G, Defs, LinearGradient as SvgGrad, Stop } from 'react-native-svg';
+import { useAuth } from '../contexts/AuthContext';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
+import { where } from 'firebase/firestore';
+import { OrderService } from '../services/orderService';
 
 const C = {
   navy: '#FF6B35', bg: '#FFF7F3', surface: '#FFFFFF', border: '#E5E7EB',
@@ -163,54 +167,150 @@ const PERIODS = ['7 jours', '30 jours', '3 mois', '1 an'];
 
 const AnalyticsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const [period, setPeriod] = useState('30 jours');
 
-  const revenueData = {
-    '7 jours': [1200, 980, 1450, 1100, 1800, 1650, 2100],
-    '30 jours':[8400, 7200, 9100, 8800, 10200, 9600, 11400, 10800, 12100, 11500, 13200, 12800, 14100, 13400, 15000, 14200, 16100, 15600, 17200, 16800, 18100, 17400, 19200, 18600, 20100, 19400, 21200, 20800, 22100, 21500],
-    '3 mois':  [42000, 38000, 51000, 47000, 56000, 52000, 61000, 58000, 67000, 63000, 72000, 68000],
-    '1 an':    [52000, 58000, 63000, 69000, 75000, 68000, 71000, 78000, 84000, 89000, 95000, 102000],
-  };
-  const revenueLabels = {
-    '7 jours': ['L','M','M','J','V','S','D'],
-    '30 jours':['1','5','10','15','20','25','30'].concat(Array(23).fill('')),
-    '3 mois':  ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'],
-    '1 an':    ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'],
+  // Fetch orders from Firestore in real-time
+  const { data: orders, loading } = useRealtimeCollection<any>('orders', {
+    constraints: user?.uid ? [where('userId', '==', user.uid)] : [],
+    enabled: !!user?.uid,
+  });
+
+  // Calculate real revenue data based on period
+  const calculateRevenueData = (period: string): { data: number[]; labels: string[] } => {
+    const now = new Date();
+    const data: number[] = [];
+    const labels: string[] = [];
+    
+    const days = period === '7 jours' ? 7 : period === '30 jours' ? 30 : period === '3 mois' ? 90 : 365;
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      
+      const dayRevenue = orders
+        .filter((o: any) => {
+          if (!o.createdAt) return false;
+          const orderDate = o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+          return orderDate.toDateString() === date.toDateString() && 
+                 ['paid', 'delivered', 'shipped'].includes(o.status);
+        })
+        .reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+      
+      data.push(dayRevenue);
+      
+      if (period === '7 jours') {
+        labels.push(['L','M','M','J','V','S','D'][date.getDay()]);
+      } else if (period === '30 jours' && i % 5 === 0) {
+        labels.push(String(i + 1));
+      } else {
+        labels.push('');
+      }
+    }
+    
+    return { data, labels };
   };
 
-  const currentData = (revenueData as any)[period];
-  const currentLabels = (revenueLabels as any)[period];
+  const { data: currentData, labels: currentLabels } = calculateRevenueData(period);
   const total = currentData.reduce((a: number, b: number) => a + b, 0);
 
-  const barData = [
-    { label: 'Mode',   value: 38400, color: C.accent  },
-    { label: 'Tech',   value: 24100, color: C.info    },
-    { label: 'Bijoux', value: 14200, color: C.purple  },
-    { label: 'Sport',  value: 8900,  color: C.success },
-    { label: 'Maison', value: 5600,  color: C.warning },
-  ];
+  // Calculate category distribution from orders
+  const calculateCategoryData = () => {
+    const categories: Record<string, number> = {};
+    
+    orders.forEach((o: any) => {
+      if (o.items && Array.isArray(o.items)) {
+        o.items.forEach((item: any) => {
+          const category = item.category || 'Autre';
+          categories[category] = (categories[category] || 0) + (item.prix * item.quantity || 0);
+        });
+      }
+    });
+    
+    return Object.entries(categories).map(([label, value]) => ({
+      label,
+      value,
+      color: [C.accent, C.info, C.purple, C.success, C.warning][Object.keys(categories).indexOf(label) % 5],
+    }));
+  };
 
-  const topProducts = [
-    { nom: 'Sneakers Édition Limitée', ventes: 214, revenu: '€ 31 886', couleur: C.accent  },
-    { nom: 'Montre Classique',          ventes: 98,  revenu: '€ 24 402', couleur: C.info    },
-    { nom: 'Veste Bomber',              ventes: 143, revenu: '€ 28 457', couleur: C.purple  },
-    { nom: 'Écouteurs Sans Fil',        ventes: 67,  revenu: '€ 8 643',  couleur: C.success },
-    { nom: 'Sac Cuir',                  ventes: 89,  revenu: '€ 7 921',  couleur: C.warning },
-  ];
+  const barData = calculateCategoryData();
 
-  const clientSegments = [
-    { label: 'VIP',     value: 12, color: C.purple  },
-    { label: 'Fidèle',  value: 28, color: C.info    },
-    { label: 'Nouveau', value: 35, color: C.success },
-    { label: 'Inactif', value: 25, color: C.muted   },
-  ];
+  // Calculate top products from orders
+  const calculateTopProducts = () => {
+    const products: Record<string, { nom: string; ventes: number; revenu: number }> = {};
+    
+    orders.forEach((o: any) => {
+      if (o.items && Array.isArray(o.items)) {
+        o.items.forEach((item: any) => {
+          const nom = item.nom || 'Produit';
+          if (!products[nom]) {
+            products[nom] = { nom, ventes: 0, revenu: 0 };
+          }
+          products[nom].ventes += item.quantity || 0;
+          products[nom].revenu += item.prix * item.quantity || 0;
+        });
+      }
+    });
+    
+    return Object.values(products)
+      .sort((a, b) => b.ventes - a.ventes)
+      .slice(0, 5)
+      .map((p, i) => ({
+        ...p,
+        revenu: `${(p.revenu / 1000).toFixed(1)}k F`,
+        couleur: [C.accent, C.info, C.purple, C.success, C.warning][i],
+      }));
+  };
 
-  const kpis = [
-    { label: 'Revenu total',       value: `€ ${(total/1000).toFixed(0)}k`, change: '+14%',  color: C.accent  },
-    { label: 'Ticket moyen',       value: '€ 127',                          change: '+8%',   color: C.info    },
-    { label: 'Taux de conversion', value: '3.4%',                           change: '+0.6%', color: C.success },
-    { label: 'Retours',            value: '3.2%',                           change: '-0.8%', color: C.error   },
-  ];
+  const topProducts = calculateTopProducts();
+
+  // Calculate client segments from orders
+  const calculateClientSegments = () => {
+    const clients: Record<string, number> = {};
+    
+    orders.forEach((o: any) => {
+      const client = o.client || 'Inconnu';
+      const orderCount = orders.filter((ord: any) => ord.client === client).length;
+      
+      if (orderCount >= 10) {
+        clients['VIP'] = (clients['VIP'] || 0) + 1;
+      } else if (orderCount >= 5) {
+        clients['Fidèle'] = (clients['Fidèle'] || 0) + 1;
+      } else if (orderCount >= 1) {
+        clients['Nouveau'] = (clients['Nouveau'] || 0) + 1;
+      }
+    });
+    
+    const totalClients = Object.values(clients).reduce((a: number, b: number) => a + b, 0);
+    const inactif = Math.max(0, totalClients - Object.values(clients).reduce((a: number, b: number) => a + b, 0));
+    
+    return [
+      { label: 'VIP',     value: clients['VIP'] || 0, color: C.purple  },
+      { label: 'Fidèle',  value: clients['Fidèle'] || 0, color: C.info    },
+      { label: 'Nouveau', value: clients['Nouveau'] || 0, color: C.success },
+      { label: 'Inactif', value: inactif, color: C.muted   },
+    ];
+  };
+
+  const clientSegments = calculateClientSegments();
+
+  // Calculate KPIs from real data
+  const calculateKPIs = () => {
+    const totalRevenue = total;
+    const totalOrders = orders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const conversionRate = 3.2; // Placeholder - would need visitor data
+    
+    return [
+      { label: 'Revenu total',       value: `${(totalRevenue/1000).toFixed(0)}k F`, change: '+0%',  color: C.accent  },
+      { label: 'Ticket moyen',       value: `${(avgOrderValue/1000).toFixed(0)}k F`, change: '+0%',   color: C.info    },
+      { label: 'Taux de conversion', value: '3.4%',                           change: '+0%', color: C.success },
+      { label: 'Retours',            value: '3.2%',                           change: '-0%', color: C.error   },
+    ];
+  };
+
+  const kpis = calculateKPIs();
 
   return (
     <View style={s.root}>

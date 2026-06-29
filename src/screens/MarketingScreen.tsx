@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch, Alert, KeyboardAvoidingView, Platform} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
+import { MarketingAutomationService } from '../services/MarketingAutomationService';
 
 const C = {
   navy: '#FF6B35', bg: '#FFF7F3', surface: '#FFFFFF', border: '#E5E7EB', borderFocus: '#FF6B35',
@@ -28,26 +29,14 @@ interface Campaign {
   sent: number; openRate: number; clicks: number; conversions: number; color: string;
 }
 
-const promoTypeLabel: Record<PromoType, string> = { percent: '%', fixed: '€', shipping: '🚚', bundle: '📦' };
+const promoTypeLabel: Record<PromoType, string> = { percent: '%', fixed: 'F', shipping: '🚚', bundle: '📦' };
 const statusCfg: Record<CampaignStatus, { label: string; color: string }> = {
   active:    { label: 'Active',     color: C.success },
   scheduled: { label: 'Planifiée',  color: C.warning },
   ended:     { label: 'Terminée',   color: C.muted   },
 };
 
-const INITIAL_PROMOS: Promo[] = [
-  { id: 'p1', code: 'SOLDES20',  type: 'percent', value: 20, label: '−20% sur tout',          uses: 147, maxUses: 500, active: true,  color: C.accent  },
-  { id: 'p2', code: 'LIVRAISON', type: 'shipping', value: 0, label: 'Livraison offerte',       uses: 83,  maxUses: 200, active: true,  color: C.info    },
-  { id: 'p3', code: 'VIP50',     type: 'fixed',   value: 50, label: '−€50 (clients VIP)',      uses: 12,  maxUses: 50,  active: false, color: C.purple  },
-  { id: 'p4', code: 'PACK3',     type: 'bundle',  value: 15, label: '−15% pour 3 articles',   uses: 34,  maxUses: 300, active: true,  color: C.success },
-];
-
-const CAMPAIGNS: Campaign[] = [
-  { id: 'c1', name: 'Newsletter Juin',    channel: '📧 Email',   status: 'active',    sent: 2840, openRate: 32, clicks: 412, conversions: 87,  color: C.info    },
-  { id: 'c2', name: 'Flash Sale Weekend', channel: '📲 SMS',     status: 'active',    sent: 1200, openRate: 68, clicks: 890, conversions: 134, color: C.accent  },
-  { id: 'c3', name: 'Relance Paniers',    channel: '📧 Email',   status: 'scheduled', sent: 0,    openRate: 0,  clicks: 0,   conversions: 0,   color: C.purple  },
-  { id: 'c4', name: 'Promo Mai',          channel: '📧 Email',   status: 'ended',     sent: 3100, openRate: 28, clicks: 310, conversions: 62,  color: C.muted   },
-];
+const marketingService = new MarketingAutomationService();
 
 const StatMini: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
   <View style={sm.wrap}>
@@ -63,9 +52,27 @@ const sm = StyleSheet.create({
 
 const MarketingScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const [promos, setPromos]   = useState<Promo[]>(INITIAL_PROMOS);
+  const [promos, setPromos]   = useState<Promo[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [tab, setTab]         = useState<'promos' | 'campagnes' | 'creer'>('promos');
   const [focused, setFocused] = useState<string | null>(null);
+
+  // Load campaigns from MarketingAutomationService
+  useEffect(() => {
+    const campaignsData = marketingService.getCampaigns();
+    const mappedCampaigns = campaignsData.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      channel: c.type === 'email' ? '📧 Email' : c.type === 'sms' ? '📲 SMS' : c.type === 'push' ? '📱 Push' : '📱 In-app',
+      status: c.status === 'running' ? 'active' as CampaignStatus : c.status === 'scheduled' ? 'scheduled' as CampaignStatus : 'ended' as CampaignStatus,
+      sent: c.metrics.sent,
+      openRate: c.metrics.sent > 0 ? Math.round((c.metrics.opened / c.metrics.sent) * 100) : 0,
+      clicks: c.metrics.clicked,
+      conversions: c.metrics.converted,
+      color: c.status === 'running' ? C.info : c.status === 'scheduled' ? C.purple : C.muted,
+    }));
+    setCampaigns(mappedCampaigns);
+  }, []);
 
   // New promo form state
   const [newCode,  setNewCode]  = useState('');
@@ -78,7 +85,7 @@ const MarketingScreen: React.FC = () => {
 
   const createPromo = () => {
     if (!newCode.trim() || !newValue.trim()) { Alert.alert('Requis', 'Code et valeur obligatoires.'); return; }
-    const typeLabels: Record<PromoType, string> = { percent: `−${newValue}%`, fixed: `−€${newValue}`, shipping: 'Livraison offerte', bundle: `−${newValue}% lot` };
+    const typeLabels: Record<PromoType, string> = { percent: `−${newValue}%`, fixed: `−${newValue} F`, shipping: 'Livraison offerte', bundle: `−${newValue}% lot` };
     const newPromo: Promo = {
       id: Date.now().toString(), code: newCode.toUpperCase(), type: newType,
       value: parseFloat(newValue) || 0, label: typeLabels[newType],
@@ -90,8 +97,8 @@ const MarketingScreen: React.FC = () => {
     Alert.alert('✓ Code créé', `Le code "${newPromo.code}" est maintenant actif.`);
   };
 
-  const totalRevenuMarketing = 18_420;
-  const totalConversions = CAMPAIGNS.reduce((t, c) => t + c.conversions, 0);
+  const totalRevenuMarketing = campaigns.reduce((t, c) => t + c.conversions * 45, 0);
+  const totalConversions = campaigns.reduce((t, c) => t + c.conversions, 0);
 
   return (
     <View style={s.root}>
@@ -125,7 +132,7 @@ const MarketingScreen: React.FC = () => {
           <Text style={s.summaryLabel}>Promos actives</Text>
         </View>
         <View style={[s.summaryCard, { borderTopColor: C.purple }]}>
-          <Text style={s.summaryVal}>{CAMPAIGNS.filter(c => c.status === 'active').length}</Text>
+          <Text style={s.summaryVal}>{campaigns.filter((c: Campaign) => c.status === 'active').length}</Text>
           <Text style={s.summaryLabel}>Campagnes live</Text>
         </View>
       </View>
@@ -191,7 +198,7 @@ const MarketingScreen: React.FC = () => {
         {/* ── CAMPAGNES ────────────────────────────────────────────── */}
         {tab === 'campagnes' && (
           <>
-            {CAMPAIGNS.map(c => {
+            {campaigns.map((c: Campaign) => {
               const cfg = statusCfg[c.status];
               return (
                 <View key={c.id} style={s.campCard}>

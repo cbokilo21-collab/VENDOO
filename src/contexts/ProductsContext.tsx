@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from './AuthContext';
+import { useBoutique } from './BoutiqueContext';
 import { FirestoreService } from '../services/firestoreService';
 import { where } from 'firebase/firestore';
 
@@ -60,6 +61,7 @@ const saveLocal = (items: Product[]) => {
 
 export const ProductsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { boutiqueData } = useBoutique();
   const [products, setProducts] = useState<Product[]>(() => loadLocal());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,10 +77,15 @@ export const ProductsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setLoading(true);
     try {
-      // Listen to products for current boutique (we'll assume single boutique for now)
+      // Listen to products for current boutique
+      // Use boutique_id if available, otherwise fall back to userId for backward compatibility
+      const constraints = boutiqueData.id 
+        ? [where('boutique_id', '==', boutiqueData.id)]
+        : [where('userId', '==', user.uid)];
+      
       const unsub = FirestoreService.onQuery<Product>(
         'products',
-        [where('userId', '==', user.uid)],
+        constraints,
         (data) => {
           setProducts(data);
           saveLocal(data);
@@ -99,15 +106,17 @@ export const ProductsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       unsubscribe?.();
     };
-  }, [user]);
+  }, [user, boutiqueData.id]);
 
   const addProduct = async (p: Omit<Product, 'id'>) => {
     if (!user) throw new Error('Not authenticated');
     try {
       setError(null);
+      // Use boutique_id if available, otherwise use userId for backward compatibility
+      const boutiqueId = boutiqueData.id || user.uid;
       // Remove undefined values before sending to Firestore
       const cleanedData = Object.fromEntries(
-        Object.entries({ ...p, userId: user.uid }).filter(([_, v]) => v !== undefined)
+        Object.entries({ ...p, boutique_id: boutiqueId, userId: user.uid }).filter(([_, v]) => v !== undefined)
       );
       const docId = await FirestoreService.create('products', cleanedData);
       return docId;
@@ -146,9 +155,10 @@ export const ProductsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) throw new Error('Not authenticated');
     try {
       setLoading(true);
-      const data = await FirestoreService.query<Product>('products', [
-        where('userId', '==', user.uid),
-      ]);
+      const constraints = boutiqueData.id 
+        ? [where('boutique_id', '==', boutiqueData.id)]
+        : [where('userId', '==', user.uid)];
+      const data = await FirestoreService.query<Product>('products', constraints);
       setProducts(data);
       saveLocal(data);
     } catch (err) {

@@ -616,6 +616,34 @@ const QuartierScreen: React.FC = () => {
       </View>
 
       <BoutiqueModal b={selected} onClose={() => setSelected(null)} />
+
+      {/* ── Innovation Section ─────────────────────────────────────────────── */}
+      <View style={innovation.root}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={innovation.scrollContent}>
+          <View style={innovation.card}>
+            <Text style={innovation.cardIcon}>🚀</Text>
+            <Text style={innovation.cardTitle}>Le Futur du Commerce</Text>
+            <Text style={innovation.cardDesc}>Une expérience immersive qui réinvente la façon de découvrir et acheter des produits locaux.</Text>
+          </View>
+          <View style={innovation.card}>
+            <Text style={innovation.cardIcon}>🌍</Text>
+            <Text style={innovation.cardTitle}>Commerce Mondial</Text>
+            <Text style={innovation.cardDesc}>Connectez-vous avec des boutiques du monde entier dans un quartier virtuel sans frontières.</Text>
+          </View>
+          <View style={innovation.card}>
+            <Text style={innovation.cardIcon}>💡</Text>
+            <Text style={innovation.cardTitle}>Innovation 3D</Text>
+            <Text style={innovation.cardDesc}>Des façades interactives et une navigation intuitive pour une expérience d'achat unique.</Text>
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <View style={footer.root}>
+        <Text style={footer.text}>Développée et gérée par</Text>
+        <Text style={footer.brand}>Axis com</Text>
+        <Text style={footer.tagline}>L'innovation au service du commerce</Text>
+      </View>
       
       {/* Country/Region Selector Modal */}
       <Modal visible={showCountrySelector} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCountrySelector(false)}>
@@ -695,6 +723,22 @@ const s = StyleSheet.create({
   emptyState: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyIcon: { fontSize: 48 },
   emptyText: { fontSize: 16, color: C.textMid, fontWeight: '500' },
+});
+
+const innovation = StyleSheet.create({
+  root: { backgroundColor: C.white, paddingVertical: 20, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: C.border },
+  scrollContent: { gap: 16 },
+  card: { width: 280, backgroundColor: C.bg, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border },
+  cardIcon: { fontSize: 32, marginBottom: 8 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: C.textDark, marginBottom: 8 },
+  cardDesc: { fontSize: 13, color: C.textMid, lineHeight: 18 },
+});
+
+const footer = StyleSheet.create({
+  root: { backgroundColor: C.navy, paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center', gap: 4 },
+  text: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
+  brand: { fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: 1 },
+  tagline: { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' },
 });
 
 const md = StyleSheet.create({

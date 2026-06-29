@@ -2,7 +2,7 @@
  * BusinessDashboard — professional, white-dominant overview.
  * Orange is an accent only (CTA, chart line, one KPI chip).
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
 } from 'react-native';
@@ -16,6 +16,9 @@ import { T, shadow } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useDashboardKPIs } from '../hooks/useRealtimeData';
+import { useLanguage } from '../contexts/LanguageContext';
+import { NotificationService } from '../services/notificationService';
+import { OrderService } from '../services/orderService';
 
 const fmtF = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} M F` :
@@ -25,29 +28,39 @@ const fmtF = (n: number) =>
 const isWeb = Platform.OS === 'web';
 type Nav = NativeStackNavigationProp<any>;
 
-const SPARK    = [11.2, 15.8, 13.4, 19.6, 17.1, 22.3, 24.85];
-const DAYS     = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-const BAR_VALS = [68, 82, 55, 91, 78, 95, 100];
 const BAR_H    = 92;
 
-const NOTIFS = [
-  { id:1, msg:'Nouvelle commande #1848 — 76 400 F', time:'Il y a 2 min', type:'order'   },
-  { id:2, msg:'Stock faible : Chemise Blanche (2 restants)', time:'Il y a 1h', type:'stock' },
-  { id:3, msg:'Paiement reçu pour #1847 — Marie D.', time:'Il y a 3h', type:'payment' },
+const getDays = (t: any) => [
+  t('dashboard.mon'),
+  t('dashboard.tue'),
+  t('dashboard.wed'),
+  t('dashboard.thu'),
+  t('dashboard.fri'),
+  t('dashboard.sat'),
+  t('dashboard.sun')
 ];
 
-const ORDERS = [
-  { id:'#1847', name:'Marie Dubois',   amt:'76 500 F',  status:'Payé',        color:T.success, soft:T.successSoft },
-  { id:'#1846', name:'Thomas Martin',  amt:'124 800 F', status:'Préparation', color:T.warning, soft:T.warningSoft },
-  { id:'#1845', name:'Sophie Laurent', amt:'67 200 F',  status:'Expédié',     color:T.info,    soft:T.infoSoft    },
-  { id:'#1844', name:'Pierre Moreau',  amt:'245 000 F', status:'Payé',        color:T.success, soft:T.successSoft },
-];
+// Helper to format relative time
+const formatRelativeTime = (date: any): string => {
+  if (!date) return '';
+  const d = date.toDate ? date.toDate() : new Date(date);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'À l\'instant';
+  if (diffMins < 60) return `Il y a ${diffMins} min`;
+  if (diffHours < 24) return `Il y a ${diffHours} h`;
+  return `Il y a ${diffDays} j`;
+};
 
 const KPIS = [
-  { label:'Commandes',    value:'47',       sub:'+8 vs hier',     trend:'+8.0%',  tint:T.infoSoft,    ink:T.info,    icon:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 10h6M9 14h6' },
-  { label:'Clients',      value:'1 284',    sub:'+23 ce mois',    trend:'+1.8%',  tint:T.successSoft, ink:T.success, icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
-  { label:'Produits',     value:'156',      sub:'4 en stock faible', trend:'',    tint:T.violetSoft,  ink:T.violet,  icon:'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' },
-  { label:'Panier moyen', value:'52 800 F', sub:'+3 200 F',       trend:'+6.5%',  tint:T.orangeSoft,  ink:T.orange,  icon:'M3 6h18M3 6l1.5 12a2 2 0 0 0 2 1.8h10.9a2 2 0 0 0 2-1.8L21 6M16 10a4 4 0 0 1-8 0' },
+  { label:'business.orders',    value:'47',       sub:'+8 vs hier',     trend:'+8.0%',  tint:T.infoSoft,    ink:T.info,    icon:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 10h6M9 14h6' },
+  { label:'business.customers',      value:'1 284',    sub:'+23 ce mois',    trend:'+1.8%',  tint:T.successSoft, ink:T.success, icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+  { label:'business.products',     value:'156',      sub:'4 en stock faible', trend:'',    tint:T.violetSoft,  ink:T.violet,  icon:'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' },
+  { label:'business.averageBasket', value:'52 800 F', sub:'+3 200 F',       trend:'+6.5%',  tint:T.orangeSoft,  ink:T.orange,  icon:'M3 6h18M3 6l1.5 12a2 2 0 0 0 2 1.8h10.9a2 2 0 0 0 2-1.8L21 6M16 10a4 4 0 0 1-8 0' },
 ];
 
 // ── Icon helper ─────────────────────────────────────────────────────────────────
@@ -57,16 +70,16 @@ const Ic = ({ d, s=16, c=T.textMid, w=2 }: { d:string; s?:number; c?:string; w?:
 );
 
 // ── Responsive area sparkline ────────────────────────────────────────────────────
-const Sparkline: React.FC<{ h:number }> = ({ h }) => {
+const Sparkline: React.FC<{ h:number; data:number[] }> = ({ h, data }) => {
   const [w, setW] = useState(isWeb ? 640 : 300);
-  const min = Math.min(...SPARK), max = Math.max(...SPARK);
+  const min = Math.min(...data), max = Math.max(...data);
   const r = max - min || 1;
   const pad = 8;
-  const pts = SPARK.map((v,i) => ({
-    x: (i/(SPARK.length-1))*(w-pad*2)+pad,
+  const pts = data.map((v,i) => ({
+    x: (i/(data.length-1))*(w-pad*2)+pad,
     y: h-((v-min)/r)*(h-16)-8,
   }));
-  const line = pts.reduce((acc,p,i) => {
+  const line = pts.reduce((acc:string, p:any, i:number) => {
     if (i===0) return `M${p.x},${p.y}`;
     const cx=(pts[i-1].x+p.x)/2;
     return `${acc} C${cx},${pts[i-1].y} ${cx},${p.y} ${p.x},${p.y}`;
@@ -87,12 +100,12 @@ const Sparkline: React.FC<{ h:number }> = ({ h }) => {
   );
 };
 
-const notifColorForStatus = (status?:string) =>
-  status==='paid' || status==='delivered' ? { status:'Payé',        color:T.success, soft:T.successSoft } :
-  status==='processing'                   ? { status:'Préparation', color:T.warning, soft:T.warningSoft } :
-  status==='shipped'                      ? { status:'Expédié',     color:T.info,    soft:T.infoSoft    } :
-  status==='cancelled' || status==='refunded' ? { status:'Annulé',  color:T.error,   soft:T.errorSoft   } :
-                                            { status:'En attente',  color:T.warning, soft:T.warningSoft };
+const notifColorForStatus = (status?:string, t?:any) =>
+  status==='paid' || status==='delivered' ? { status:t('business.paid'),        color:T.success, soft:T.successSoft } :
+  status==='processing'                   ? { status:t('business.preparing'), color:T.warning, soft:T.warningSoft } :
+  status==='shipped'                      ? { status:t('business.shipped'),     color:T.info,    soft:T.infoSoft    } :
+  status==='cancelled' || status==='refunded' ? { status:t('business.cancelled'),  color:T.error,   soft:T.errorSoft   } :
+                                            { status:t('business.pending'),  color:T.warning, soft:T.warningSoft };
 
 const notifMeta = (type:string) =>
   type==='order'   ? { c:T.info,    soft:T.infoSoft,    d:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2' } :
@@ -104,42 +117,103 @@ const BusinessDashboard: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const { boutiqueData } = useBoutique();
-  const live = useDashboardKPIs(user?.uid ?? null);
+  const { t } = useLanguage();
+  
+  const translatedKPIs = KPIS.map(kpi => ({ ...kpi, label: t(kpi.label) }));
+  const live = useDashboardKPIs(user?.uid ?? null, boutiqueData.id ?? null);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [readNotifs, setReadNotifs] = useState<Set<number>>(new Set());
+  const [readNotifs, setReadNotifs] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<'Jour'|'Semaine'|'Mois'>('Mois');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(true);
 
-  // Live data drives the dashboard; demo constants fill in until Firestore has rows.
-  const hasLiveOrders = live.totalOrders > 0;
+  // Load real notifications
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (user?.uid) {
+        try {
+          const notifs = await NotificationService.getUserNotifications(user.uid);
+          setNotifications(notifs.slice(0, 10)); // Show last 10 notifications
+        } catch (error) {
+          console.error('Error loading notifications:', error);
+        } finally {
+          setLoadingNotifs(false);
+        }
+      }
+    };
+    loadNotifications();
+  }, [user?.uid]);
 
   const greeting = (() => {
     const h = new Date().getHours();
-    return h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+    return h < 12 ? t('dashboard.goodMorning') : h < 18 ? t('dashboard.goodAfternoon') : t('dashboard.goodEvening');
   })();
   const ownerName = (user?.displayName || user?.email?.split('@')[0] || 'Cyril')
     .replace(/^\w/, (c) => c.toUpperCase());
 
-  // KPI values: prefer live aggregates, fall back to the demo snapshot.
+  // KPI values: use live data only
   const kpiData = [
-    { ...KPIS[0], value: hasLiveOrders ? String(live.totalOrders) : KPIS[0].value },
-    { ...KPIS[1], value: live.totalCustomers > 0 ? live.totalCustomers.toLocaleString('fr-FR') : KPIS[1].value },
-    { ...KPIS[2], value: live.totalProducts > 0 ? String(live.totalProducts) : KPIS[2].value,
-      sub: live.totalProducts > 0 ? `${live.lowStockProducts.length} en stock faible` : KPIS[2].sub },
-    { ...KPIS[3], value: hasLiveOrders ? fmtF(live.avgCart) : KPIS[3].value },
+    { ...translatedKPIs[0], value: String(live.totalOrders), sub: `${live.todayOrders} aujourd'hui`, trend: live.totalOrders > 0 ? '+0%' : '' },
+    { ...translatedKPIs[1], value: live.totalCustomers.toLocaleString('fr-FR'), sub: `${live.totalCustomers} clients`, trend: live.totalCustomers > 0 ? '+0%' : '' },
+    { ...translatedKPIs[2], value: String(live.totalProducts), sub: `${live.lowStockProducts.length} stock faible`, trend: '' },
+    { ...translatedKPIs[3], value: fmtF(live.avgCart), sub: live.totalOrders > 0 ? 'Panier moyen' : '0 F', trend: '' },
   ];
-  const revenueValue = hasLiveOrders ? fmtF(live.totalRevenue) : '24 850 000 F';
-  const liveOrders = hasLiveOrders
-    ? live.recentOrders.map((o: any) => ({
-        id: o.orderNumber ?? `#${o.id?.slice(0, 4)}`,
-        name: o.client ?? o.customerName ?? 'Client',
-        amt: fmtF(o.total ?? 0),
-        ...notifColorForStatus(o.status),
-      }))
-    : ORDERS;
+  const revenueValue = fmtF(live.totalRevenue);
+  
+  // Real orders from Firestore
+  const liveOrders = live.recentOrders.map((o: any) => ({
+    id: o.orderNumber ?? `#${o.id?.slice(0, 4)}`,
+    name: o.client ?? o.customerName ?? 'Client',
+    amt: fmtF(o.total ?? 0),
+    ...notifColorForStatus(o.status, t),
+  }));
 
-  const unread = NOTIFS.length - readNotifs.size;
+  // Real notifications
+  const unread = notifications.filter(n => !n.read).length;
   const handleLogout = async () => { try { await signOut(auth); } catch {} };
-  const markAllRead = () => setReadNotifs(new Set(NOTIFS.map(n => n.id)));
+  const markAllRead = async () => {
+    if (user?.uid) {
+      await NotificationService.markAllAsRead(user.uid);
+      setReadNotifs(new Set(notifications.map((n: any) => n.id)));
+    }
+  };
+
+  // Calculate real data for charts from orders
+  const calculateSparklineData = (): number[] => {
+    const orders = live.recentOrders;
+    const sparkData = [0, 0, 0, 0, 0, 0, 0]; // Last 7 days
+    
+    orders.forEach((order: any) => {
+      if (!order.createdAt) return;
+      const date = order.createdAt.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+      const daysAgo = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysAgo >= 0 && daysAgo < 7) {
+        sparkData[6 - daysAgo] += order.total || 0;
+      }
+    });
+    
+    return sparkData;
+  };
+
+  const calculateBarData = (): number[] => {
+    const orders = live.recentOrders;
+    const barData = [0, 0, 0, 0, 0, 0, 0]; // Last 7 days
+    
+    orders.forEach((order: any) => {
+      if (!order.createdAt) return;
+      const date = order.createdAt.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+      const daysAgo = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysAgo >= 0 && daysAgo < 7) {
+        barData[6 - daysAgo] += 1;
+      }
+    });
+    
+    const max = Math.max(...barData) || 1;
+    return barData.map(v => (v / max) * 100);
+  };
+
+  const sparklineData = calculateSparklineData();
+  const barData = calculateBarData();
 
   const content = (
     <View style={{ gap: 16 }}>
@@ -148,7 +222,7 @@ const BusinessDashboard: React.FC = () => {
       <View style={d.pageHead}>
         <View style={{ flex: 1 }}>
           <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
-          <Text style={d.pageTitle}>Tableau de bord</Text>
+          <Text style={d.pageTitle}>{t('nav.home')}</Text>
           <Text style={d.pageSub}>{boutiqueData.nom || 'Ma boutique'} · aperçu en temps réel</Text>
         </View>
         <View style={d.headActions}>
@@ -160,10 +234,10 @@ const BusinessDashboard: React.FC = () => {
             {showNotifs && (
               <View style={d.notifPanel}>
                 <View style={d.notifHead}>
-                  <Text style={d.notifTitle}>Notifications</Text>
-                  <TouchableOpacity onPress={markAllRead}><Text style={d.notifMark}>Tout marquer lu</Text></TouchableOpacity>
+                  <Text style={d.notifTitle}>{t('nav.notifications')}</Text>
+                  <TouchableOpacity onPress={markAllRead}><Text style={d.notifMark}>{t('notifications.markAllRead')}</Text></TouchableOpacity>
                 </View>
-                {NOTIFS.map(n => {
+                {notifications.map((n: any) => {
                   const isRead = readNotifs.has(n.id);
                   const m = notifMeta(n.type);
                   return (
@@ -171,8 +245,8 @@ const BusinessDashboard: React.FC = () => {
                       onPress={() => setReadNotifs(prev => new Set([...prev, n.id]))} activeOpacity={0.7}>
                       <View style={[d.notifIcon, { backgroundColor: m.soft }]}><Ic d={m.d} s={14} c={m.c}/></View>
                       <View style={{ flex:1 }}>
-                        <Text style={[d.notifMsg, isRead && { color:T.muted, fontWeight:'500' }]}>{n.msg}</Text>
-                        <Text style={d.notifTime}>{n.time}</Text>
+                        <Text style={[d.notifMsg, isRead && { color:T.muted, fontWeight:'500' }]}>{n.title}</Text>
+                        <Text style={d.notifTime}>{formatRelativeTime(n.createdAt)}</Text>
                       </View>
                       {!isRead && <View style={d.notifDot}/>}
                     </TouchableOpacity>
@@ -216,17 +290,17 @@ const BusinessDashboard: React.FC = () => {
             </View>
           </View>
           <View style={d.periodTabs}>
-            {(['Jour','Semaine','Mois'] as const).map(p => (
-              <TouchableOpacity key={p} onPress={() => setPeriod(p)}
-                style={[d.periodTab, period===p && d.periodTabA]} activeOpacity={0.8}>
-                <Text style={[d.periodTxt, period===p && d.periodTxtA]}>{p}</Text>
+            {[t('dashboard.day'), t('dashboard.week'), t('dashboard.month')].map((p, idx) => (
+              <TouchableOpacity key={idx} onPress={() => setPeriod(['Jour','Semaine','Mois'][idx] as any)}
+                style={[d.periodTab, period===['Jour','Semaine','Mois'][idx] && d.periodTabA]} activeOpacity={0.8}>
+                <Text style={[d.periodTxt, period===['Jour','Semaine','Mois'][idx] && d.periodTxtA]}>{p}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-        <Sparkline h={isWeb ? 120 : 96}/>
+        <Sparkline h={isWeb ? 120 : 96} data={sparklineData}/>
         <View style={d.dayRow}>
-          {DAYS.map((day,i) => <Text key={i} style={d.dayLbl}>{day}</Text>)}
+          {getDays(t).map((day: string, i: number) => <Text key={i} style={d.dayLbl}>{day}</Text>)}
         </View>
       </View>
 
@@ -256,20 +330,20 @@ const BusinessDashboard: React.FC = () => {
         <View style={[d.card, { flex: 1 }]}>
           <View style={d.secHead}>
             <View>
-              <Text style={d.secTitle}>Ventes des 7 derniers jours</Text>
-              <Text style={d.secSub}>Total : 12 340 000 F</Text>
+              <Text style={d.secTitle}>{t('dashboard.last7DaysSales')}</Text>
+              <Text style={d.secSub}>{t('dashboard.total')}: {fmtF(sparklineData.reduce((a, b) => a + b, 0))}</Text>
             </View>
           </View>
           <View style={d.bars}>
-            {BAR_VALS.map((pct, i) => {
-              const peak = pct === Math.max(...BAR_VALS);
+            {barData.map((pct: number, i: number) => {
+              const peak = pct === Math.max(...barData);
               return (
                 <View key={i} style={d.barCol}>
                   <View style={d.barTrack}>
                     <View style={{ width:'70%', height: Math.round((pct/100)*BAR_H), borderRadius:6,
                       backgroundColor: peak ? T.orange : T.orangeSoft, borderWidth: peak ? 0 : 1, borderColor: '#FFD9C7' }}/>
                   </View>
-                  <Text style={[d.barDay, peak && { color:T.orangeDark, fontWeight:'800' }]}>{DAYS[i].slice(0,1)}</Text>
+                  <Text style={[d.barDay, peak && { color:T.orangeDark, fontWeight:'800' }]}>{getDays(t)[i].slice(0,1)}</Text>
                 </View>
               );
             })}
@@ -279,9 +353,9 @@ const BusinessDashboard: React.FC = () => {
         {/* Recent orders */}
         <View style={[d.card, { flex: isWeb ? 1.5 : 1 }]}>
           <View style={d.secHead}>
-            <Text style={d.secTitle}>Commandes récentes</Text>
+            <Text style={d.secTitle}>{t('dashboard.recentOrders')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Orders' as any)} activeOpacity={0.7}>
-              <Text style={d.seeAll}>Voir tout →</Text>
+              <Text style={d.seeAll}>{t('dashboard.seeAll')} →</Text>
             </TouchableOpacity>
           </View>
           {liveOrders.map((o, i) => (
@@ -302,15 +376,15 @@ const BusinessDashboard: React.FC = () => {
 
       {/* ── Quick actions ────────────────────────────────────────────────── */}
       <View style={d.card}>
-        <Text style={d.secTitle}>Actions rapides</Text>
+        <Text style={d.secTitle}>{t('dashboard.quickActions')}</Text>
         <View style={d.quickRow}>
           {[
-            { label:'Caisse',    route:'POS',       tint:T.orangeSoft,  ink:T.orange,  icon:'M2 3h20v14H2zM8 21h8M12 17v4' },
-            { label:'Produit',   route:'Products',  tint:T.violetSoft,  ink:T.violet,  icon:'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' },
-            { label:'Commandes', route:'Orders',    tint:T.infoSoft,    ink:T.info,    icon:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2' },
-            { label:'Analytics', route:'Analytics', tint:T.successSoft, ink:T.success, icon:'M3 3v18h18M7 14l4-4 3 3 5-6' },
-            { label:'Marketing', route:'Marketing', tint:T.warningSoft, ink:T.warning, icon:'M3 11l19-9-9 19-2-8-8-2z' },
-            { label:'Clients',   route:'Customers', tint:T.violetSoft,  ink:T.violet,  icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+            { label:t('sidebar.pos'),    route:'POS',       tint:T.orangeSoft,  ink:T.orange,  icon:'M2 3h20v14H2zM8 21h8M12 17v4' },
+            { label:t('sidebar.products'),   route:'Products',  tint:T.violetSoft,  ink:T.violet,  icon:'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' },
+            { label:t('sidebar.orders'), route:'Orders',    tint:T.infoSoft,    ink:T.info,    icon:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2' },
+            { label:t('sidebar.analytics'), route:'Analytics', tint:T.successSoft, ink:T.success, icon:'M3 3v18h18M7 14l4-4 3 3 5-6' },
+            { label:t('sidebar.marketing'), route:'Marketing', tint:T.warningSoft, ink:T.warning, icon:'M3 11l19-9-9 19-2-8-8-2z' },
+            { label:t('sidebar.customers'),   route:'Customers', tint:T.violetSoft,  ink:T.violet,  icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
           ].map(q => (
             <TouchableOpacity key={q.route} style={d.qItem}
               onPress={() => navigation.navigate(q.route as any)} activeOpacity={0.8}>
@@ -320,6 +394,37 @@ const BusinessDashboard: React.FC = () => {
           ))}
         </View>
       </View>
+
+      {/* ── Low stock alerts ────────────────────────────────────────────────── */}
+      {live.lowStockProducts.length > 0 && (
+        <View style={[d.card, { borderColor:T.error, borderWidth:1.5 }]}>
+          <View style={d.secHead}>
+            <View>
+              <Text style={[d.secTitle, { color:T.error }]}>⚠️ Stock faible</Text>
+              <Text style={d.secSub}>{live.lowStockProducts.length} produit(s) nécessitent un réapprovisionnement</Text>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('Products' as any)} activeOpacity={0.7}>
+              <Text style={d.seeAll}>Voir tout →</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ gap:8 }}>
+            {live.lowStockProducts.slice(0, 3).map((p: any) => (
+              <View key={p.id} style={{ flexDirection:'row', alignItems:'center', gap:12, paddingVertical:8, borderBottomWidth:1, borderBottomColor:T.divider }}>
+                <View style={{ width:40, height:40, borderRadius:8, backgroundColor:T.page, alignItems:'center', justifyContent:'center' }}>
+                  <Text style={{ fontSize:18 }}>{p.emoji || '📦'}</Text>
+                </View>
+                <View style={{ flex:1 }}>
+                  <Text style={{ fontSize:13, fontWeight:'700', color:T.text }}>{p.nom || p.name}</Text>
+                  <Text style={{ fontSize:11, color:T.muted }}>Stock: {p.stock} unités</Text>
+                </View>
+                <View style={{ paddingHorizontal:8, paddingVertical:4, borderRadius:6, backgroundColor:T.errorSoft }}>
+                  <Text style={{ fontSize:11, fontWeight:'700', color:T.error }}>Critique</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
     </View>
   );

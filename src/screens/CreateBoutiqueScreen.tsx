@@ -7,6 +7,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { useAuth } from '../contexts/AuthContext';
+import { BoutiqueService } from '../services/boutiqueService';
 import { slugify, generateShopUrl } from '../utils/slugify';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -547,7 +549,9 @@ const TOTAL = 6;
 const CreateBoutiqueScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { setBoutiqueData } = useBoutique();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   // Form state
@@ -590,42 +594,84 @@ const CreateBoutiqueScreen: React.FC = () => {
     Animated.timing(slideAnim, { toValue: 0, duration: 240, easing: Easing.ease, useNativeDriver: true }).start();
   };
 
-  const next = () => {
+  const next = async () => {
     if (step === 1 && !boutiqueName.trim()) { Alert.alert('Requis', 'Donnez un nom à votre boutique.'); return; }
     if (step === 2 && !secteur)            { Alert.alert('Requis', 'Choisissez votre secteur.'); return; }
     if (step === 3 && (!paysNom || !villeNom)) { Alert.alert('Requis', 'Choisissez un pays et une ville.'); return; }
     if (step === 4 && !couleur)           { Alert.alert('Requis', 'Choisissez une couleur de façade.'); return; }
     if (step < TOTAL) { animateStep(1); setStep(s => s + 1); }
     else {
-      // Generate slug and public shop URL
-      const slug = slugify(boutiqueName);
-      const shopUrl = generateShopUrl(boutiqueName);
+      if (!user) {
+        Alert.alert('Erreur', 'Vous devez être connecté pour créer une boutique.');
+        return;
+      }
 
-      // Save boutique data to context
-      setBoutiqueData({
-        nom: boutiqueName,
-        slug: slug,
-        shopUrl: shopUrl,
-        description: description,
-        logo: logo,
-        website: website,
-        instagram: instagram,
-        facebook: facebook,
-        email: email,
-        phone: phone,
-        secteur: secteur,
-        pays: paysNom,
-        ville: villeNom,
-        couleur: couleur,
-        currency: currency,
-        chatbot: {
-          enabled: enableChatbot,
-          name: chatbotName,
-          tone: chatbotTone,
-          welcomeMessage: welcomeMessage,
-        },
-      });
-      navigation.navigate('BoutiqueKeys');
+      setIsSaving(true);
+      try {
+        // Generate slug and public shop URL
+        const slug = slugify(boutiqueName);
+        const shopUrl = generateShopUrl(boutiqueName);
+
+        // Save boutique to Firestore
+        const boutiqueId = await BoutiqueService.create(user.uid, {
+          nom: boutiqueName,
+          slug: slug,
+          shopUrl: shopUrl,
+          description: description,
+          logo: logo,
+          website: website,
+          instagram: instagram,
+          facebook: facebook,
+          email: email,
+          phone: phone,
+          secteur: secteur,
+          pays: paysNom,
+          ville: villeNom,
+          couleur: couleur,
+          currency: currency,
+          timezone: 'Europe/Paris',
+          chatbot: {
+            enabled: enableChatbot,
+            name: chatbotName,
+            tone: chatbotTone,
+            welcomeMessage: welcomeMessage,
+          },
+        });
+
+        // Save boutique data to context with the Firestore ID
+        setBoutiqueData({
+          id: boutiqueId,
+          nom: boutiqueName,
+          slug: slug,
+          shopUrl: shopUrl,
+          description: description,
+          logo: logo,
+          website: website,
+          instagram: instagram,
+          facebook: facebook,
+          email: email,
+          phone: phone,
+          secteur: secteur,
+          pays: paysNom,
+          ville: villeNom,
+          couleur: couleur,
+          currency: currency,
+          timezone: 'Europe/Paris',
+          chatbot: {
+            enabled: enableChatbot,
+            name: chatbotName,
+            tone: chatbotTone,
+            welcomeMessage: welcomeMessage,
+          },
+        });
+
+        navigation.navigate('BoutiqueKeys');
+      } catch (error) {
+        console.error('Error creating boutique:', error);
+        Alert.alert('Erreur', 'Impossible de créer la boutique. Veuillez réessayer.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
   const back = () => {

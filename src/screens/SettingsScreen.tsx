@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch, Dimensions, Alert, KeyboardAvoidingView, Platform, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch, Dimensions, Alert, KeyboardAvoidingView, Platform, Animated, Easing, Image } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import BottomNavigation from '../components/BottomNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
+import LanguageSelector from '../components/LanguageSelector';
+import CurrencySelector from '../components/CurrencySelector';
+import * as ImagePicker from 'expo-image-picker';
 
 const C = {
   navy: '#FF6B35', sideMuted: '#64748B',
@@ -96,10 +101,13 @@ const SwitchRow: React.FC<{ label: string; desc?: string; value: boolean; onChan
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { boutiqueData, setBoutiqueData } = useBoutique();
+  const { user, userType } = useAuth();
+  const { t } = useLanguage();
   const isDesktop = Dimensions.get('window').width >= 1024;
   const [boutiqueName, setBoutiqueName] = useState(boutiqueData.nom);
   const [boutiqueDescription, setBoutiqueDescription] = useState(boutiqueData.description);
   const [boutiqueLogo, setBoutiqueLogo] = useState(boutiqueData.logo);
+  const [profilePhoto, setProfilePhoto] = useState(user?.photoURL || '');
   const [website, setWebsite] = useState(boutiqueData.website);
   const [instagram, setInstagram] = useState(boutiqueData.instagram);
   const [facebook, setFacebook] = useState(boutiqueData.facebook);
@@ -116,6 +124,28 @@ const SettingsScreen: React.FC = () => {
   const [notifAI, setNotifAI]           = useState(false);
   const [autoShip, setAutoShip]         = useState(false);
   const [twoFA, setTwoFA]               = useState(false);
+
+  const pickImage = async (isProfile: boolean = false) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        if (isProfile) {
+          setProfilePhoto(result.assets[0].uri);
+        } else {
+          setBoutiqueLogo(result.assets[0].uri);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert(t('common.error'), t('settings.imageError'));
+    }
+  };
 
   // Sync with context when component mounts
   useEffect(() => {
@@ -144,7 +174,7 @@ const SettingsScreen: React.FC = () => {
       currency: currency,
       timezone: timezone,
     });
-    Alert.alert('Sauvegardé', 'Vos paramètres ont été enregistrés.');
+    Alert.alert(t('common.success'), t('settings.saved'));
   };
   const handleLogout = async () => { try { await signOut(auth); } catch {} };
   const goTo = (screen: string) => { if (screen !== 'Settings') navigation.navigate(screen as any); };
@@ -172,38 +202,49 @@ const SettingsScreen: React.FC = () => {
       {/* Header */}
       <AnimatedCard delay={0} style={s.pageHeaderRow}>
         <View>
-          <Text style={s.pageTitle}>Paramètres</Text>
-          <Text style={s.pageSubtitle}>Gérez votre boutique et vos préférences.</Text>
+          <Text style={s.pageTitle}>{t('settings.title')}</Text>
+          <Text style={s.pageSubtitle}>{t('settings.subtitle')}</Text>
         </View>
         <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Text style={s.saveBtnText}>Sauvegarder</Text>
+          <Text style={s.saveBtnText}>{t('settings.save')}</Text>
         </TouchableOpacity>
       </AnimatedCard>
 
       {/* Profile */}
       <AnimatedCard delay={50} style={s.card}>
-        <Text style={s.cardTitle}>Mon profil</Text>
+        <Text style={s.cardTitle}>{t('settings.profile')}</Text>
         <View style={s.profileRow}>
-          <View style={s.profileAvatar}><Text style={s.profileAvatarText}>C</Text></View>
+          <TouchableOpacity style={s.profileAvatar} onPress={() => pickImage(true)} activeOpacity={0.7}>
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={s.profileAvatarImage} />
+            ) : (
+              <Text style={s.profileAvatarText}>{user?.email?.charAt(0).toUpperCase() || 'U'}</Text>
+            )}
+            <View style={s.profileEditIcon}>
+              <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2}>
+                <Path d="M15 3l6 6-9 9H9v-6l9-9zM11 13l3-3M6 21h6" strokeLinecap="round" strokeLinejoin="round"/>
+              </Svg>
+            </View>
+          </TouchableOpacity>
           <View>
-            <Text style={s.profileName}>Cyril B.</Text>
-            <View style={s.planBadge}><Text style={s.planText}>Plan Pro</Text></View>
+            <Text style={s.profileName}>{user?.displayName || user?.email?.split('@')[0] || t('webshell.user')}</Text>
+            <View style={s.planBadge}><Text style={s.planText}>{userType === 'buyer' ? t('settings.visitor') : t('settings.adminPro')}</Text></View>
           </View>
         </View>
       </AnimatedCard>
 
       {/* Boutique info */}
       <AnimatedCard delay={100} style={s.card}>
-        <Text style={s.cardTitle}>Informations boutique</Text>
+        <Text style={s.cardTitle}>{t('settings.boutiqueInfo')}</Text>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Nom de la boutique</Text>
-          {inp('boutique', boutiqueName, setBoutiqueName, 'Nom de la boutique')}
+          <Text style={s.label}>{t('settings.boutiqueName')}</Text>
+          {inp('boutique', boutiqueName, setBoutiqueName, t('settings.boutiqueName'))}
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Description</Text>
+          <Text style={s.label}>{t('settings.description')}</Text>
           <TextInput
             style={[s.textArea, focused === 'description' && s.inputFocused]}
-            placeholder='Décrivez votre boutique en quelques mots...'
+            placeholder={t('settings.description')}
             placeholderTextColor={C.muted}
             value={boutiqueDescription}
             onChangeText={setBoutiqueDescription}
@@ -217,51 +258,91 @@ const SettingsScreen: React.FC = () => {
           <Text style={s.charCount}>{boutiqueDescription.length}/500</Text>
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>URL du logo</Text>
-          {inp('logo', boutiqueLogo, setBoutiqueLogo, 'https://...')}
+          <Text style={s.label}>{t('settings.logoUrl')}</Text>
+          <View style={s.logoRow}>
+            <TouchableOpacity style={s.logoPreview} onPress={() => pickImage(false)} activeOpacity={0.7}>
+              {boutiqueLogo ? (
+                <Image source={{ uri: boutiqueLogo }} style={s.logoPreviewImage} />
+              ) : (
+                <Text style={s.logoPreviewText}>{boutiqueName?.charAt(0).toUpperCase() || 'B'}</Text>
+              )}
+              <View style={s.logoEditIcon}>
+                <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2}>
+                  <Path d="M15 3l6 6-9 9H9v-6l9-9zM11 13l3-3M6 21h6" strokeLinecap="round" strokeLinejoin="round"/>
+                </Svg>
+              </View>
+            </TouchableOpacity>
+            <TextInput
+              style={[s.input, focused === 'logo' && s.inputFocused, { flex: 1 }]}
+              value={boutiqueLogo}
+              onChangeText={setBoutiqueLogo}
+              placeholder={t('settings.urlPlaceholder')}
+              placeholderTextColor={C.muted}
+              onFocus={() => setFocused('logo')}
+              onBlur={() => setFocused(null)}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="done"
+              clearButtonMode="while-editing"
+              spellCheck={false}
+            />
+          </View>
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Site web</Text>
-          {inp('website', website, setWebsite, 'https://monsite.com')}
+          <Text style={s.label}>{t('settings.website')}</Text>
+          {inp('website', website, setWebsite, t('settings.websitePlaceholder'))}
         </View>
       </AnimatedCard>
 
       {/* Contact info */}
       <AnimatedCard delay={150} style={s.card}>
-        <Text style={s.cardTitle}>Coordonnées</Text>
+        <Text style={s.cardTitle}>{t('settings.contact')}</Text>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Email de contact</Text>
-          {inp('email', email, setEmail, 'contact@boutique.com')}
+          <Text style={s.label}>{t('settings.email')}</Text>
+          {inp('email', email, setEmail, t('settings.emailPlaceholder'))}
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Téléphone</Text>
-          {inp('phone', phone, setPhone, '+33 6 12 34 56 78')}
+          <Text style={s.label}>{t('settings.phone')}</Text>
+          {inp('phone', phone, setPhone, t('settings.phonePlaceholder'))}
         </View>
       </AnimatedCard>
 
       {/* Social media */}
       <AnimatedCard delay={200} style={s.card}>
-        <Text style={s.cardTitle}>Réseaux sociaux</Text>
+        <Text style={s.cardTitle}>{t('settings.social')}</Text>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Instagram</Text>
-          {inp('instagram', instagram, setInstagram, '@votrecompte')}
+          <Text style={s.label}>{t('settings.instagram')}</Text>
+          {inp('instagram', instagram, setInstagram, t('settings.instagramPlaceholder'))}
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Facebook</Text>
-          {inp('facebook', facebook, setFacebook, 'facebook.com/votrepage')}
+          <Text style={s.label}>{t('settings.facebook')}</Text>
+          {inp('facebook', facebook, setFacebook, t('settings.facebookPlaceholder'))}
         </View>
       </AnimatedCard>
 
       {/* Store settings */}
       <AnimatedCard delay={250} style={s.card}>
-        <Text style={s.cardTitle}>Paramètres magasin</Text>
+        <Text style={s.cardTitle}>{t('settings.storeSettings')}</Text>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Devise</Text>
-          {inp('currency', currency, setCurrency, 'EUR')}
+          <Text style={s.label}>{t('settings.currency')}</Text>
+          {inp('currency', currency, setCurrency, t('settings.currencyPlaceholder'))}
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Fuseau horaire</Text>
-          {inp('timezone', timezone, setTimezone, 'Europe/Paris')}
+          <Text style={s.label}>{t('settings.timezone')}</Text>
+          {inp('timezone', timezone, setTimezone, t('settings.timezonePlaceholder'))}
+        </View>
+      </AnimatedCard>
+
+      {/* Language & Currency preferences */}
+      <AnimatedCard delay={275} style={s.card}>
+        <Text style={s.cardTitle}>{t('settings.displayPreferences')}</Text>
+        <View style={s.fieldGroup}>
+          <Text style={s.label}>{t('settings.language')}</Text>
+          <LanguageSelector />
+        </View>
+        <View style={s.fieldGroup}>
+          <Text style={s.label}>{t('settings.currency')}</Text>
+          <CurrencySelector />
         </View>
       </AnimatedCard>
 
@@ -269,58 +350,58 @@ const SettingsScreen: React.FC = () => {
       <AnimatedCard delay={300} style={s.card}>
         <View style={s.cardHeaderRow}>
           <View>
-            <Text style={s.cardTitle}>Coordonnées bancaires</Text>
-            <Text style={s.cardSub}>IBAN, BIC et informations bancaires</Text>
+            <Text style={s.cardTitle}>{t('settings.bankDetails')}</Text>
+            <Text style={s.cardSub}>{t('settings.bankSub')}</Text>
           </View>
           <TouchableOpacity style={s.linkBtn} onPress={() => navigation.navigate('PaymentSettings' as any)}>
-            <Text style={s.linkBtnText}>Paiements →</Text>
+            <Text style={s.linkBtnText}>{t('settings.payments')}</Text>
           </TouchableOpacity>
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>IBAN</Text>
-          {inp('iban', iban, setIban, 'FR76XXXXXXXXXXXXXXXXXXX')}
+          <Text style={s.label}>{t('settings.iban')}</Text>
+          {inp('iban', iban, setIban, t('settings.ibanPlaceholder'))}
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>BIC / SWIFT</Text>
-          {inp('bic', bic, setBic, 'XXXXXXXX')}
+          <Text style={s.label}>{t('settings.bic')}</Text>
+          {inp('bic', bic, setBic, t('settings.bicPlaceholder'))}
         </View>
         <View style={s.fieldGroup}>
-          <Text style={s.label}>Nom de la banque</Text>
-          {inp('bankName', bankName, setBankName, 'ex: BNP Paribas')}
+          <Text style={s.label}>{t('settings.bankName')}</Text>
+          {inp('bankName', bankName, setBankName, t('settings.bankNamePlaceholder'))}
         </View>
       </AnimatedCard>
 
       {/* Notifications */}
       <AnimatedCard delay={350} style={s.card}>
-        <Text style={s.cardTitle}>Notifications</Text>
-        <SwitchRow label="Nouvelles commandes" desc="Alerte à chaque commande reçue" value={notifOrders} onChange={setNotifOrders} />
+        <Text style={s.cardTitle}>{t('settings.notifications')}</Text>
+        <SwitchRow label={t('settings.notifOrders')} desc={t('settings.notifOrdersDesc')} value={notifOrders} onChange={setNotifOrders} />
         <View style={s.divider} />
-        <SwitchRow label="Alertes de stock" desc="Notification quand le stock est faible" value={notifStock} onChange={setNotifStock} />
+        <SwitchRow label={t('settings.notifStock')} desc={t('settings.notifStockDesc')} value={notifStock} onChange={setNotifStock} />
         <View style={s.divider} />
-        <SwitchRow label="Rapports IA" desc="Résumé hebdomadaire généré par l'IA" value={notifAI} onChange={setNotifAI} />
+        <SwitchRow label={t('settings.notifAI')} desc={t('settings.notifAIDesc')} value={notifAI} onChange={setNotifAI} />
       </AnimatedCard>
 
       {/* Automation */}
       <AnimatedCard delay={400} style={s.card}>
-        <Text style={s.cardTitle}>Automatisation</Text>
-        <SwitchRow label="Expédition automatique" desc="Confirme les commandes validées automatiquement" value={autoShip} onChange={setAutoShip} />
+        <Text style={s.cardTitle}>{t('settings.automation')}</Text>
+        <SwitchRow label={t('settings.autoShip')} desc={t('settings.autoShipDesc')} value={autoShip} onChange={setAutoShip} />
       </AnimatedCard>
 
       {/* Security */}
       <AnimatedCard delay={450} style={s.card}>
-        <Text style={s.cardTitle}>Sécurité</Text>
-        <SwitchRow label="Authentification à 2 facteurs" desc="Protège votre compte avec un code OTP" value={twoFA} onChange={setTwoFA} />
+        <Text style={s.cardTitle}>{t('settings.security')}</Text>
+        <SwitchRow label={t('settings.twoFA')} desc={t('settings.twoFADesc')} value={twoFA} onChange={setTwoFA} />
       </AnimatedCard>
 
       {/* Danger zone */}
       <AnimatedCard delay={500} style={[s.card, s.dangerCard]}>
-        <Text style={s.dangerTitle}>Zone dangereuse</Text>
-        <Text style={s.dangerDesc}>Ces actions sont irréversibles. Procédez avec prudence.</Text>
+        <Text style={s.dangerTitle}>{t('settings.dangerZone')}</Text>
+        <Text style={s.dangerDesc}>{t('settings.dangerDesc')}</Text>
         <TouchableOpacity style={s.dangerBtn} onPress={handleLogout} activeOpacity={0.85}>
-          <Text style={s.dangerBtnText}>Se déconnecter</Text>
+          <Text style={s.dangerBtnText}>{t('settings.logout')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.dangerBtnGhost} onPress={() => Alert.alert('Attention', 'Cette action supprimera définitivement votre compte.')} activeOpacity={0.85}>
-          <Text style={s.dangerBtnGhostText}>Supprimer le compte</Text>
+        <TouchableOpacity style={s.dangerBtnGhost} onPress={() => Alert.alert(t('settings.warning'), t('settings.deleteAccountConfirm'))} activeOpacity={0.85}>
+          <Text style={s.dangerBtnGhostText}>{t('settings.deleteAccount')}</Text>
         </TouchableOpacity>
       </AnimatedCard>
     </ScrollView>
@@ -337,7 +418,7 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <View style={s.mobile}>
-      <View style={s.mobileHeader}><Text style={s.mobileTitle}>Paramètres</Text></View>
+      <View style={s.mobileHeader}><Text style={s.mobileTitle}>{t('settings.title')}</Text></View>
       {content}
       <BottomNavigation activeRoute="Settings" />
     </View>
@@ -377,8 +458,10 @@ const s = StyleSheet.create({
   linkBtnText: { fontSize: 13, fontWeight: '600', color: C.accent },
 
   profileRow:       { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  profileAvatar:    { width: 52, height: 52, borderRadius: 26, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  profileAvatar:    { width: 52, height: 52, borderRadius: 26, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  profileAvatarImage: { width: 52, height: 52, borderRadius: 26 },
   profileAvatarText:{ fontSize: 22, fontWeight: '800', color: C.white },
+  profileEditIcon:  { position: 'absolute', bottom: 0, right: 0, backgroundColor: C.textDark, borderRadius: 10, width: 18, height: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.surface },
   profileName:      { fontSize: 16, fontWeight: '700', color: C.textDark, marginBottom: 5 },
   planBadge:        { backgroundColor: C.accent + '18', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start' },
   planText:         { fontSize: 12, fontWeight: '700', color: C.accent },
@@ -389,6 +472,11 @@ const s = StyleSheet.create({
   inputFocused: { borderColor: C.borderFocus, backgroundColor: C.white },
   textArea:     { height: 100, borderWidth: 1.5, borderColor: C.border, borderRadius: 9, paddingHorizontal: 12, paddingTop: 12, fontSize: 15, color: C.textDark, backgroundColor: C.bg },
   charCount:    { fontSize: 11, color: C.muted, textAlign: 'right', marginTop: 4 },
+  logoRow:      { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoPreview:  { width: 44, height: 44, borderRadius: 10, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  logoPreviewImage: { width: 44, height: 44, borderRadius: 10 },
+  logoPreviewText: { fontSize: 18, fontWeight: '800', color: C.white },
+  logoEditIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: C.textDark, borderRadius: 8, width: 16, height: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.surface },
 
   switchRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   switchInfo: { flex: 1, paddingRight: 16 },

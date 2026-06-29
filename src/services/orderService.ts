@@ -1,5 +1,6 @@
 import { where, orderBy, Timestamp } from 'firebase/firestore';
 import { FirestoreService } from './firestoreService';
+import { NotificationService } from './notificationService';
 
 export type OrderStatus =
   | 'pending'
@@ -37,12 +38,24 @@ export interface Order {
   paymentMethod: 'card' | 'cash' | 'mobile';
   trackingNumber?: string;
   carrier?: string;
+  estimatedDeliveryDate?: any; // Date de livraison estimée (accordée avec le vendeur)
+  actualDeliveryDate?: any; // Date de livraison réelle
+  deliveryLocation?: string; // Quartier/zone de livraison
+  trackingHistory?: TrackingEvent[]; // Historique du tracking
   returnReason?: string;
   refundAmount?: number;
   fraudRisk?: 'low' | 'medium' | 'high';
   notes?: string;
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface TrackingEvent {
+  id?: string;
+  status: string;
+  description: string;
+  location?: string;
+  timestamp?: any;
 }
 
 export const ORDER_STATUS_META: Record<OrderStatus, { label: string; color: string; soft: string; next?: OrderStatus[] }> = {
@@ -70,6 +83,7 @@ export const OrderService = {
     const id = await FirestoreService.create('orders', {
       ...data,
       userId,
+      boutiqueId: data.boutiqueId || userId, // Use boutiqueId if provided, otherwise use userId as fallback
       orderNumber,
       status: 'pending' as OrderStatus,
     });
@@ -77,7 +91,33 @@ export const OrderService = {
   },
 
   async updateStatus(orderId: string, status: OrderStatus, extra?: Partial<Order>): Promise<void> {
+    const order = await this.getById(orderId);
+    if (!order) return;
+
     await FirestoreService.update('orders', orderId, { status, ...extra });
+
+    // Créer des notifications automatiques basées sur le statut
+    try {
+      switch (status) {
+        case 'paid':
+          await NotificationService.createOrderNotification(order.userId, orderId, 'paid');
+          break;
+        case 'processing':
+          await NotificationService.createOrderNotification(order.userId, orderId, 'processing');
+          break;
+        case 'shipped':
+          await NotificationService.createOrderNotification(order.userId, orderId, 'shipped');
+          break;
+        case 'delivered':
+          await NotificationService.createOrderNotification(order.userId, orderId, 'delivered');
+          break;
+        case 'cancelled':
+          await NotificationService.createOrderNotification(order.userId, orderId, 'cancelled');
+          break;
+      }
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
   },
 
   async getByUser(userId: string): Promise<Order[]> {
@@ -107,5 +147,44 @@ export const OrderService = {
       return acc;
     }, {} as Record<string, number>);
     return { totalRevenue, avgCart, statusCounts, totalOrders: orders.length };
+  },
+
+  /**
+   * Définir la date de livraison estimée (accordée avec le vendeur)
+   */
+  async setEstimatedDelivery(orderId: string, estimatedDate: Date, location: string): Promise<void> {
+    await FirestoreService.update('orders', orderId, {
+      estimatedDeliveryDate: estimatedDate,
+      deliveryLocation: location,
+    });
+  },
+
+  /**
+   * Ajouter un événement de tracking
+   */
+  async addTrackingEvent(orderId: string, event: Omit<TrackingEvent, 'id' | 'timestamp'>): Promise<void> {
+    const order = await this.getById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    const trackingHistory = order.trackingHistory || [];
+    const newEvent: TrackingEvent = {
+      ...event,
+      timestamp: new Date(),
+    };
+
+    await FirestoreService.update('orders', orderId, {
+      trackingHistory: [...trackingHistory, newEvent],
+    });
+  },
+
+  /**
+   * Marquer la commande comme livrée
+   */
+  async markAsDelivered(orderId: string): Promise<void> {
+    await this.updateStatus(orderId, 'delivered', {
+      actualDeliveryDate: new Date(),
+    });
   },
 };

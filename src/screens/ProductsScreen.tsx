@@ -10,6 +10,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { useProducts } from '../contexts/ProductsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { StorageService } from '../services/storageService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const CATEGORIES = ['Vêtements', 'Chaussures', 'Accessoires', 'Électronique', 'Maison', 'Autre'];
 const PRODUCT_COLORS = ['#FEE2E2', '#DBEAFE', '#D1FAE5', '#FEF3C7', '#EDE9FE', '#FCE7F3'];
@@ -45,6 +46,7 @@ interface Product {
 const ProductsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { products, loading, error, addProduct, updateProduct, removeProduct } = useProducts();
   const [search, setSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -53,17 +55,30 @@ const ProductsScreen: React.FC = () => {
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
 
-  // Create-product modal state (Shopify-style product form)
+  // Create-product modal state (Shopify-style product editor)
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [newComparePrice, setNewComparePrice] = useState('');
+  const [newCost, setNewCost] = useState('');
   const [newStock, setNewStock] = useState('');
+  const [newSku, setNewSku] = useState('');
+  const [newBarcode, setNewBarcode] = useState('');
+  const [trackStock, setTrackStock] = useState(true);
   const [newCategory, setNewCategory] = useState(CATEGORIES[0]);
+  const [newVendor, setNewVendor] = useState('');
+  const [newTags, setNewTags] = useState('');
+  const [newStatus, setNewStatus] = useState<'active' | 'draft'>('active');
   const [newImageUri, setNewImageUri] = useState('');
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Live margin computation for the pricing section
+  const priceNum = parseInt(newPrice) || 0;
+  const costNum = parseInt(newCost) || 0;
+  const profit = priceNum - costNum;
+  const marginPct = priceNum > 0 && costNum > 0 ? Math.round((profit / priceNum) * 100) : null;
 
   const filtered = products.filter(p =>
     p.nom.toLowerCase().includes(search.toLowerCase())
@@ -87,12 +102,14 @@ const ProductsScreen: React.FC = () => {
 
   const resetAddForm = () => {
     setNewName(''); setNewDescription(''); setNewPrice(''); setNewComparePrice('');
-    setNewStock(''); setNewCategory(CATEGORIES[0]); setNewImageUri(''); setNewImageFile(null);
+    setNewCost(''); setNewStock(''); setNewSku(''); setNewBarcode('');
+    setTrackStock(true); setNewCategory(CATEGORIES[0]); setNewVendor(''); setNewTags('');
+    setNewStatus('active'); setNewImageUri(''); setNewImageFile(null);
   };
 
   const handleCreate = async () => {
     if (!newName.trim()) {
-      Alert.alert('Titre requis', 'Donnez un titre au produit.');
+      Alert.alert(t('products.titleRequired'), t('products.giveTitle'));
       return;
     }
     const prix = parseInt(newPrice) || 0;
@@ -125,7 +142,7 @@ const ProductsScreen: React.FC = () => {
       resetAddForm();
       setShowAdd(false);
     } catch (err) {
-      Alert.alert('Erreur', "Impossible de créer le produit. Réessayez.");
+      Alert.alert(t('common.error'), t('products.createError'));
     } finally {
       setSaving(false);
     }
@@ -149,10 +166,10 @@ const ProductsScreen: React.FC = () => {
 
   const handleDelete = async () => {
     if (!selectedProduct) return;
-    Alert.alert('Supprimer', `Supprimer "${selectedProduct.nom}" ?`, [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t('products.delete'), `${t('products.deleteConfirm')} "${selectedProduct.nom}" ?`, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Supprimer', style: 'destructive',
+        text: t('products.delete'), style: 'destructive',
         onPress: async () => {
           await removeProduct(selectedProduct.id);
           setShowModal(false);
@@ -179,7 +196,7 @@ const ProductsScreen: React.FC = () => {
         {/* Stock badge */}
         {p.stock < 5 && (
           <View style={[s.stockBadge, p.stock === 0 && { backgroundColor: C.error }]}>
-            <Text style={s.stockText}>{p.stock === 0 ? 'Rupture' : `${p.stock} restant`}</Text>
+            <Text style={s.stockText}>{p.stock === 0 ? t('products.outOfStock') : `${p.stock} ${t('products.remaining')}`}</Text>
           </View>
         )}
         {p.prixPromo && (
@@ -211,8 +228,8 @@ const ProductsScreen: React.FC = () => {
       {/* Header */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>
-          <Text style={s.title}>Produits</Text>
-          <Text style={s.sub}>{filtered.length} article{filtered.length !== 1 ? 's' : ''}</Text>
+          <Text style={s.title}>{t('products.title')}</Text>
+          <Text style={s.sub}>{filtered.length} {filtered.length !== 1 ? t('products.items') : t('products.item')}</Text>
         </View>
         <TouchableOpacity style={s.addBtn} activeOpacity={0.8} onPress={() => { resetAddForm(); setShowAdd(true); }}>
           <Ico d="M12 5v14M5 12h14" s={18} c="#fff" />
@@ -231,7 +248,7 @@ const ProductsScreen: React.FC = () => {
         <Ico d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" s={16} c={C.muted} />
         <TextInput
           style={s.searchInput}
-          placeholder="Rechercher…"
+          placeholder={t('common.search')}
           placeholderTextColor={C.muted}
           value={search}
           onChangeText={setSearch}
@@ -242,16 +259,16 @@ const ProductsScreen: React.FC = () => {
       {loading ? (
         <View style={s.loadingBox}>
           <ActivityIndicator size="large" color={C.accent} />
-          <Text style={s.loadingText}>Synchronisation…</Text>
+          <Text style={s.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : filtered.length === 0 ? (
         <View style={s.emptyBox}>
           <Ico d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" s={40} c={C.muted} />
-          <Text style={s.emptyText}>Aucun produit</Text>
-          <Text style={s.emptySub}>Créez votre premier produit</Text>
+          <Text style={s.emptyText}>{t('products.noProducts')}</Text>
+          <Text style={s.emptySub}>{t('products.createFirst')}</Text>
           <TouchableOpacity style={s.emptyCta} activeOpacity={0.85} onPress={() => { resetAddForm(); setShowAdd(true); }}>
             <Ico d="M12 5v14M5 12h14" s={16} c="#fff" />
-            <Text style={s.emptyCtaText}>Ajouter un produit</Text>
+            <Text style={s.emptyCtaText}>{t('products.addProduct')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -269,7 +286,7 @@ const ProductsScreen: React.FC = () => {
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
             <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>Éditer produit</Text>
+              <Text style={s.modalTitle}>{t('products.editProduct')}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
                 <Ico d="M18 6L6 18M6 6l12 12" s={24} c={C.text} />
               </TouchableOpacity>
@@ -285,17 +302,17 @@ const ProductsScreen: React.FC = () => {
               )}
 
               <View style={s.field}>
-                <Text style={s.label}>Nom</Text>
+                <Text style={s.label}>{t('products.name')}</Text>
                 <TextInput
                   style={s.input}
                   value={editName}
                   onChangeText={setEditName}
-                  placeholder="Nom du produit"
+                  placeholder={t('products.productName')}
                 />
               </View>
 
               <View style={s.field}>
-                <Text style={s.label}>Prix (F)</Text>
+                <Text style={s.label}>{t('products.price')}</Text>
                 <TextInput
                   style={s.input}
                   value={editPrice}
@@ -306,7 +323,7 @@ const ProductsScreen: React.FC = () => {
               </View>
 
               <View style={s.field}>
-                <Text style={s.label}>Stock</Text>
+                <Text style={s.label}>{t('products.stock')}</Text>
                 <TextInput
                   style={s.input}
                   value={editStock}
@@ -322,14 +339,14 @@ const ProductsScreen: React.FC = () => {
                   onPress={handleSave}
                   activeOpacity={0.8}
                 >
-                  <Text style={s.actionText}>Enregistrer</Text>
+                  <Text style={s.actionText}>{t('common.save')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.actionBtn, { backgroundColor: C.error }]}
                   onPress={handleDelete}
                   activeOpacity={0.8}
                 >
-                  <Text style={s.actionText}>Supprimer</Text>
+                  <Text style={s.actionText}>{t('common.delete')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -346,34 +363,34 @@ const ProductsScreen: React.FC = () => {
               <TouchableOpacity onPress={() => setShowAdd(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ico d="M18 6L6 18M6 6l12 12" s={22} c={C.textMid} />
               </TouchableOpacity>
-              <Text style={s.sheetTitle}>Nouveau produit</Text>
+              <Text style={s.sheetTitle}>{t('products.newProduct')}</Text>
               <TouchableOpacity
                 style={[s.saveBtn, saving && { opacity: 0.6 }]}
                 onPress={handleCreate}
                 disabled={saving}
                 activeOpacity={0.85}
               >
-                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.saveBtnText}>Enregistrer</Text>}
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.saveBtnText}>{t('common.save')}</Text>}
               </TouchableOpacity>
             </View>
 
             <ScrollView style={s.sheetBody} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
               {/* ── Titre & description ── */}
               <View style={s.card}>
-                <Text style={s.cardLabel}>Titre</Text>
+                <Text style={s.cardLabel}>{t('products.title')}</Text>
                 <TextInput
                   style={s.input}
                   value={newName}
                   onChangeText={setNewName}
-                  placeholder="T-shirt coton bio"
+                  placeholder={t('products.productPlaceholder')}
                   placeholderTextColor={C.muted}
                 />
-                <Text style={[s.cardLabel, { marginTop: 16 }]}>Description</Text>
+                <Text style={[s.cardLabel, { marginTop: 16 }]}>{t('products.description')}</Text>
                 <TextInput
                   style={[s.input, s.textArea]}
                   value={newDescription}
                   onChangeText={setNewDescription}
-                  placeholder="Décrivez votre produit, sa matière, ses atouts…"
+                  placeholder={t('products.descriptionPlaceholder')}
                   placeholderTextColor={C.muted}
                   multiline
                   numberOfLines={4}
@@ -383,7 +400,7 @@ const ProductsScreen: React.FC = () => {
 
               {/* ── Média ── */}
               <View style={s.card}>
-                <Text style={s.cardSectionTitle}>Média</Text>
+                <Text style={s.cardSectionTitle}>{t('products.media')}</Text>
                 <TouchableOpacity style={s.mediaPicker} onPress={pickImage} activeOpacity={0.8}>
                   {newImageUri ? (
                     <Image source={{ uri: newImageUri }} style={s.mediaPreview} resizeMode="cover" />
@@ -392,8 +409,8 @@ const ProductsScreen: React.FC = () => {
                       <View style={s.mediaIconBox}>
                         <Ico d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.66-.9l.82-1.2A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" s={22} c={C.accent} />
                       </View>
-                      <Text style={s.mediaText}>Ajouter une image</Text>
-                      <Text style={s.mediaHint}>PNG, JPG — affichée dans le catalogue</Text>
+                      <Text style={s.mediaText}>{t('products.addImage')}</Text>
+                      <Text style={s.mediaHint}>{t('products.imageHint')}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -401,10 +418,10 @@ const ProductsScreen: React.FC = () => {
 
               {/* ── Tarification ── */}
               <View style={s.card}>
-                <Text style={s.cardSectionTitle}>Tarification</Text>
+                <Text style={s.cardSectionTitle}>{t('products.pricing')}</Text>
                 <View style={s.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.cardLabel}>Prix (F)</Text>
+                    <Text style={s.cardLabel}>{t('products.price')}</Text>
                     <TextInput
                       style={s.input}
                       value={newPrice}
@@ -415,7 +432,7 @@ const ProductsScreen: React.FC = () => {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.cardLabel}>Prix barré (F)</Text>
+                    <Text style={s.cardLabel}>{t('products.comparePrice')}</Text>
                     <TextInput
                       style={s.input}
                       value={newComparePrice}
@@ -426,13 +443,13 @@ const ProductsScreen: React.FC = () => {
                     />
                   </View>
                 </View>
-                <Text style={s.helpText}>Le prix barré (plus élevé) affiche une promo dans le catalogue.</Text>
+                <Text style={s.helpText}>{t('products.comparePriceHelp')}</Text>
               </View>
 
               {/* ── Inventaire ── */}
               <View style={s.card}>
-                <Text style={s.cardSectionTitle}>Inventaire</Text>
-                <Text style={s.cardLabel}>Quantité en stock</Text>
+                <Text style={s.cardSectionTitle}>{t('products.inventory')}</Text>
+                <Text style={s.cardLabel}>{t('products.stockQuantity')}</Text>
                 <TextInput
                   style={s.input}
                   value={newStock}
@@ -445,7 +462,7 @@ const ProductsScreen: React.FC = () => {
 
               {/* ── Catégorie ── */}
               <View style={s.card}>
-                <Text style={s.cardSectionTitle}>Catégorie</Text>
+                <Text style={s.cardSectionTitle}>{t('products.category')}</Text>
                 <View style={s.catWrap}>
                   {CATEGORIES.map(cat => (
                     <TouchableOpacity

@@ -4,6 +4,8 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Alert,
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { useAuth } from '../contexts/AuthContext';
+import { BoutiqueService } from '../services/boutiqueService';
 import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 
 const C = {
@@ -93,7 +95,8 @@ const fp = StyleSheet.create({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const BoutiqueAppearanceScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const { boutiqueData } = useBoutique();
+  const { boutiqueData, setBoutiqueData } = useBoutique();
+  const { user } = useAuth();
   const [nom, setNom]         = useState(boutiqueData.nom || 'Mode Étoile');
   const [slogan, setSlogan]   = useState('Le style à votre image');
   const [couleur, setCouleur] = useState(boutiqueData.couleur || C.accent);
@@ -101,6 +104,7 @@ const BoutiqueAppearanceScreen: React.FC = () => {
   const [theme, setTheme]     = useState('moderne');
   const [enseigne, setEnseigne] = useState('Néon');
   const [focused, setFocused] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Boutique stats (mock data)
   const boutiqueStats = {
@@ -133,7 +137,62 @@ const BoutiqueAppearanceScreen: React.FC = () => {
     </View>
   );
 
-  const handleSave = () => Alert.alert('Façade mise à jour !', `Votre boutique "${nom}" est maintenant visible dans le quartier.`);
+  const handleSave = async () => {
+    if (!user) {
+      Alert.alert('Erreur', 'Vous devez être connecté pour publier votre boutique.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Update boutique data in context
+      setBoutiqueData({
+        nom,
+        couleur,
+      });
+
+      // If boutique exists in Firestore, update it
+      if (boutiqueData.id) {
+        await BoutiqueService.update(boutiqueData.id, {
+          nom,
+          couleur,
+        });
+        Alert.alert('Façade mise à jour !', `Votre boutique "${nom}" est maintenant visible dans le quartier.`);
+      } else {
+        // Create new boutique in Firestore
+        const boutiqueId = await BoutiqueService.create(user.uid, {
+          nom,
+          couleur,
+          description: boutiqueData.description || '',
+          logo: boutiqueData.logo || '',
+          website: boutiqueData.website || '',
+          instagram: boutiqueData.instagram || '',
+          facebook: boutiqueData.facebook || '',
+          email: boutiqueData.email || '',
+          phone: boutiqueData.phone || '',
+          secteur: boutiqueData.secteur || 'Mode',
+          pays: boutiqueData.pays || 'France',
+          ville: boutiqueData.ville || 'Paris',
+          currency: boutiqueData.currency || 'EUR',
+          timezone: boutiqueData.timezone || 'Europe/Paris',
+        });
+
+        // Update context with the new ID
+        setBoutiqueData({
+          id: boutiqueId,
+          nom,
+          couleur,
+        });
+
+        Alert.alert('Boutique publiée !', `Votre boutique "${nom}" est maintenant visible dans le quartier.`);
+      }
+    } catch (error) {
+      console.error('Error saving boutique:', error);
+      Alert.alert('Erreur', 'Impossible de publier votre boutique. Veuillez réessayer.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <View style={s.root}>
@@ -149,8 +208,8 @@ const BoutiqueAppearanceScreen: React.FC = () => {
           <Text style={s.headerTitle}>Apparence de la boutique</Text>
           <Text style={s.headerSub}>Ce que voient vos clients dans le quartier</Text>
         </View>
-        <TouchableOpacity style={s.saveBtn} onPress={handleSave}>
-          <Text style={s.saveBtnText}>Publier</Text>
+        <TouchableOpacity style={[s.saveBtn, isSaving && s.saveBtnDisabled]} onPress={handleSave} disabled={isSaving}>
+          <Text style={s.saveBtnText}>{isSaving ? 'Publication...' : 'Publier'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -326,6 +385,7 @@ const s = StyleSheet.create({
   headerTitle:{ flex: 1, fontSize: 16, fontWeight: '800', color: C.textDark },
   headerSub:  { fontSize: 12, color: C.textLight },
   saveBtn:    { backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 9 },
+  saveBtnDisabled: { backgroundColor: C.muted },
   saveBtnText:{ color: C.white, fontSize: 13, fontWeight: '700' },
 
   inner: { padding: 20, gap: 16, paddingBottom: 48 },

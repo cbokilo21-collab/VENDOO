@@ -39,6 +39,8 @@ const IReceipt   = (c: string) => <I color={c} d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0
 const IMoney     = (c: string) => <I color={c} d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />;
 const IPaint     = (c: string) => <I color={c} d="M2 13.5V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.5M12 2L2 7l10 5 10-5-10-5z" />;
 const IShop      = (c: string) => <I color={c} d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" />;
+const IGlobe     = (c: string) => <I color={c} d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z" />;
+const ISparkle   = (c: string) => <I color={c} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />;
 const ICard      = (c: string) => <I color={c} d="M1 4h22v16H1zM1 10h22" />;
 const IHeart     = (c: string) => <I color={c} d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />;
 const IMap       = (c: string) => <I color={c} d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16" />;
@@ -72,10 +74,17 @@ const GROUPS = [
   {
     label: 'BOUTIQUE',
     items: [
-      { route: 'BoutiqueAppearance', label: 'Apparence',      icon: IPaint  },
-      { route: 'VendooShop',         label: 'Vendoo Shop',    icon: IShop   },
-      { route: 'PaymentSettings',    label: 'Paiements',      icon: ICard   },
-      { route: 'Sponsorship',        label: 'Parrainage',     icon: IHeart  },
+      { route: 'OnlineStore',        label: 'Boutique en ligne', icon: IGlobe },
+      { route: 'BoutiqueAppearance', label: 'Apparence',        icon: IPaint },
+      { route: 'VendooShop',         label: 'Vendoo Shop',      icon: IShop  },
+      { route: 'PaymentSettings',    label: 'Paiements',        icon: ICard  },
+      { route: 'Sponsorship',        label: 'Parrainage',       icon: IHeart },
+    ],
+  },
+  {
+    label: 'IA ARGENTIQUE',
+    items: [
+      { route: 'AIAgentique', label: 'IA Argentique', icon: ISparkle },
     ],
   },
   {
