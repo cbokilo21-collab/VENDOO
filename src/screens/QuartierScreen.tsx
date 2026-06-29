@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
-  TextInput, Modal, Animated, Dimensions, StatusBar, Image, Easing
+  TextInput, Modal, Animated, Dimensions, StatusBar, Image, Easing, ActivityIndicator
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
+import DomainService from '../services/domainService';
+import BoutiqueFacade from '../components/BoutiqueFacade';
 import Svg, {
   Path, Circle, Rect, Ellipse, G, Line, Text as SvgText,
   Defs, LinearGradient as SvgGrad, Stop, Polygon, RadialGradient,
@@ -44,7 +48,7 @@ const C = {
 };
 
 type RootStackParamList = {
-  QuartierScreen: undefined; BusinessDashboard: undefined;
+  QuartierScreen: { country?: string; city?: string }; BusinessDashboard: undefined;
   BoutiqueAppearance: undefined; BoutiqueCatalog: undefined;
 };
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -58,6 +62,7 @@ interface Boutique {
   couleur: string;
   accentC: string;
   ville: string;
+  quartier?: string;
   note: number;
   avis: number;
   produits: number;
@@ -67,52 +72,7 @@ interface Boutique {
   bestSeller?: string;
 }
 
-const BOUTIQUES: Boutique[] = [
-  {
-    id: 'b1', nom: 'Mode Étoile', proprietaire: 'Cyril B.',
-    secteur: 'Mode', emoji: '👗', couleur: '#FF6B35', accentC: '#FFFFFF',
-    ville: 'Paris', note: 4.8, avis: 142, produits: 87, statut: 'ouvert', niveau: 4,
-    description: 'La mode parisienne accessible à tous. Collections tendance chaque semaine.',
-    bestSeller: 'Veste Bomber — € 199',
-  },
-  {
-    id: 'b2', nom: 'Tech Paradise', proprietaire: 'Lucas M.',
-    secteur: 'Électronique', emoji: '📱', couleur: '#3B82F6', accentC: '#EFF6FF',
-    ville: 'Lyon', note: 4.6, avis: 89, produits: 53, statut: 'ouvert', niveau: 3,
-    description: 'High-tech et gadgets au meilleur prix. Livraison express disponible.',
-    bestSeller: 'Écouteurs Pro — € 129',
-  },
-  {
-    id: 'b3', nom: 'Bijoux Lumière', proprietaire: 'Emma D.',
-    secteur: 'Bijoux', emoji: '💍', couleur: '#8B5CF6', accentC: '#F5F3FF',
-    ville: 'Bordeaux', note: 4.9, avis: 204, produits: 31, statut: 'ferme', niveau: 4,
-    description: 'Créations artisanales uniques. Chaque pièce est une histoire.',
-    bestSeller: 'Collier Diamant — € 340',
-  },
-  {
-    id: 'b4', nom: 'Fresh Market', proprietaire: 'Sophie T.',
-    secteur: 'Alimentaire', emoji: '🛒', couleur: '#10B981', accentC: '#F0FDF4',
-    ville: 'Montréal', note: 4.5, avis: 67, produits: 120, statut: 'ouvert', niveau: 2,
-    description: 'Produits frais du marché livrés chez vous.',
-    bestSeller: 'Panier Bio — € 45',
-  },
-  {
-    id: 'b5', nom: 'Sport Max', proprietaire: 'Thomas R.',
-    secteur: 'Sport', emoji: '⚽', couleur: '#F59E0B', accentC: '#FFFBEB',
-    ville: 'Marseille', note: 4.4, avis: 95, produits: 78, statut: 'ouvert', niveau: 3,
-    description: 'Équipement sportif pour tous les niveaux. Expertise personnalisée.',
-    bestSeller: 'Running Pro — € 89',
-  },
-  {
-    id: 'b6', nom: 'Maison & Co', proprietaire: 'Chloé M.',
-    secteur: 'Maison', emoji: '🏠', couleur: '#EC4899', accentC: '#FDF2F8',
-    ville: 'Dakar', note: 4.7, avis: 115, produits: 49, statut: 'ferme', niveau: 3,
-    description: 'Déco intérieure tendance pour sublimer votre espace.',
-    bestSeller: 'Lampe Bohème — € 75',
-  },
-];
-
-const SECTEURS = ['Tous', 'Quartier Électronique', 'Quartier Mode', 'Quartier Bijoux', 'Quartier Alimentaire', 'Quartier Sport', 'Quartier Maison'];
+const SECTEURS = ['Tous'];
 
 // ─── Animated Card Component ───────────────────────────────────────────────────
 const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?: any }> = ({ children, delay = 0, style }) => {
@@ -241,130 +201,20 @@ const SceneBackdrop: React.FC<{ width: number; height: number; night: boolean }>
 
 // ─── SVG Façade — polished storefront ──────────────────────────────────────────
 const Facade: React.FC<{ b: Boutique; selected: boolean; night: boolean; onPress: () => void }> = ({ b, selected, night, onPress }) => {
-  const W = 132, H = 176;
-  const uid = b.id;
-  const c = b.couleur;
-  const cDark = shade(c, -0.32);
-  const cLight = shade(c, 0.22);
-  const signBg = '#1A1430';
   const open = b.statut === 'ouvert';
-
-  // Window glow: warm at night, cool reflective by day
-  const winTop = night ? '#FFE6A6' : '#CFE9FF';
-  const winBot = night ? '#FFC24D' : '#9FCDF2';
-  const winOp = night ? 1 : 0.92;
-
-  const groundShadow = (
-    <Ellipse cx={W / 2} cy={H - 8} rx={56} ry={9} fill="rgba(0,0,0,0.18)" />
-  );
-
-  // Striped awning generator
-  const Awning = ({ x, y, w, scale = 1 }: { x: number; y: number; w: number; scale?: number }) => {
-    const stripes = Math.round(w / 16);
-    const sw = w / stripes;
-    const flapH = 12 * scale;
-    return (
-      <G>
-        <Rect x={x} y={y} width={w} height={10 * scale} fill={cDark} rx={2} />
-        {[...Array(stripes)].map((_, i) => (
-          <Rect key={i} x={x + i * sw} y={y} width={sw} height={10 * scale}
-            fill={i % 2 === 0 ? c : '#FFFFFF'} opacity={0.96} />
-        ))}
-        {/* Scalloped flap */}
-        {[...Array(stripes)].map((_, i) => (
-          <Path key={i}
-            d={`M${x + i * sw} ${y + 10 * scale} L${x + i * sw + sw} ${y + 10 * scale} L${x + i * sw + sw / 2} ${y + 10 * scale + flapH} Z`}
-            fill={i % 2 === 0 ? c : '#FFFFFF'} opacity={0.96} />
-        ))}
-      </G>
-    );
-  };
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ marginRight: 14, alignItems: 'center' }}>
-      <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Defs>
-          <SvgGrad id={`wall-${uid}`} x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor={cLight} />
-            <Stop offset="0.5" stopColor={c} />
-            <Stop offset="1" stopColor={cDark} />
-          </SvgGrad>
-          <SvgGrad id={`win-${uid}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={winTop} stopOpacity={winOp} />
-            <Stop offset="1" stopColor={winBot} stopOpacity={winOp} />
-          </SvgGrad>
-        </Defs>
-
-        {groundShadow}
-
-        {/* Building body */}
-        <Rect x="12" y="44" width="108" height="120" rx="7" fill={`url(#wall-${uid})`} />
-        {/* Right-side depth shade */}
-        <Rect x="104" y="44" width="16" height="120" rx="7" fill="rgba(0,0,0,0.12)" />
-        {/* Cornice */}
-        <Rect x="8" y="40" width="116" height="10" rx="4" fill={cDark} />
-
-        {/* Sign board */}
-        <Rect x="16" y="20" width="100" height="22" rx="5" fill={signBg} />
-        <Rect x="16" y="20" width="100" height="22" rx="5" fill="none" stroke={c} strokeWidth="2" />
-        {night && <Rect x="14" y="18" width="104" height="26" rx="6" fill={c} opacity={0.18} />}
-        <SvgText x={W / 2} y="35" fontSize="11" fill="#FFFFFF" textAnchor="middle" fontWeight="bold">
-          {b.emoji} {b.nom.length > 9 ? b.nom.slice(0, 9) + '…' : b.nom}
-        </SvgText>
-
-        {/* Awning */}
-        <Awning x={16} y={52} w={100} />
-
-        {/* Display windows (warm/cool glow) */}
-        <Rect x="20" y="80" width="42" height="44" rx="4" fill={`url(#win-${uid})`} />
-        <Rect x="70" y="80" width="42" height="44" rx="4" fill={`url(#win-${uid})`} />
-        {/* Window frames */}
-        <Rect x="20" y="80" width="42" height="44" rx="4" fill="none" stroke={cDark} strokeWidth="2" />
-        <Rect x="70" y="80" width="42" height="44" rx="4" fill="none" stroke={cDark} strokeWidth="2" />
-        {/* Reflection streaks */}
-        <Path d="M26 84 L34 84 L24 110 L16 110 Z" fill="#FFFFFF" opacity={night ? 0.12 : 0.28} />
-        <Path d="M76 84 L84 84 L74 110 L66 110 Z" fill="#FFFFFF" opacity={night ? 0.12 : 0.28} />
-
-        {/* Door */}
-        <Rect x="54" y="126" width="24" height="38" rx="3" fill={cDark} />
-        <Rect x="57" y="130" width="18" height="30" rx="2" fill={`url(#win-${uid})`} opacity={0.85} />
-        <Circle cx="72" cy="146" r="1.8" fill="#FFE082" />
-
-        {/* Open / closed door sign */}
-        <Rect x="58" y="134" width="16" height="7" rx="2" fill={open ? '#16A34A' : '#DC2626'} />
-        <SvgText x="66" y="139.6" fontSize="4.6" fill="#FFFFFF" textAnchor="middle" fontWeight="bold">
-          {open ? 'OPEN' : 'FERMÉ'}
-        </SvgText>
-
-        {/* Potted plants (level 3+) */}
-        {b.niveau >= 3 && (
-          <G>
-            <Rect x="24" y="150" width="12" height="14" rx="2" fill={cDark} />
-            <Circle cx="27" cy="148" r="5" fill="#34C759" />
-            <Circle cx="33" cy="148" r="5" fill="#2EA84B" />
-            <Rect x="96" y="150" width="12" height="14" rx="2" fill={cDark} />
-            <Circle cx="99" cy="148" r="5" fill="#34C759" />
-            <Circle cx="105" cy="148" r="5" fill="#2EA84B" />
-          </G>
-        )}
-
-        {/* String lights at night (level 4) */}
-        {night && b.niveau >= 4 && (
-          <G>
-            <Path d="M12 50 Q66 60 120 50" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none" />
-            {[20, 40, 60, 80, 100].map((x, i) => (
-              <Circle key={i} cx={x} cy={54 + Math.sin(i) * 2} r={2.4}
-                fill={['#FFD54F', '#FF8A5C', '#FFFFFF'][i % 3]} opacity={0.95} />
-            ))}
-          </G>
-        )}
-
-        {/* Selection ring */}
-        {selected && (
-          <Rect x="6" y="16" width="120" height="152" rx="12" fill="none"
-            stroke={C.accent} strokeWidth="3" strokeDasharray="7 5" />
-        )}
-      </Svg>
+      <BoutiqueFacade
+        name={b.nom}
+        sector={b.secteur}
+        level={b.niveau}
+        night={night}
+        open={open}
+        color={b.couleur}
+        width={150}
+        selected={selected}
+      />
 
       {/* Rating + status pill under the storefront */}
       <View style={fc.nameRow}>
@@ -478,14 +328,34 @@ const BoutiqueModal: React.FC<{ b: Boutique | null; onClose: () => void }> = ({ 
 // ─── Main QuartierScreen ──────────────────────────────────────────────────────
 const QuartierScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const route = navigation.getState()?.routes.find(r => r.name === 'QuartierScreen');
+  const routeParams = route?.params as { country?: string; city?: string } | undefined;
+
   const { boutiqueData } = useBoutique();
-  const [secteur, setSecteur]   = useState('Tous');
+  const { user } = useAuth();
+  const [quartier, setQuartier] = useState('Tous');
   const [search, setSearch]     = useState('');
   const [selected, setSelected] = useState<Boutique | null>(null);
   const [time, setTime]         = useState<'jour' | 'nuit'>('jour');
-  const [country, setCountry]   = useState('France');
-  const [city, setCity]         = useState('Paris');
+  const [country, setCountry]   = useState(routeParams?.country || 'France');
+  const [city, setCity]         = useState(routeParams?.city || 'Paris');
   const [showCountrySelector, setShowCountrySelector] = useState(false);
+
+  // Fetch boutiques from Firestore in real-time
+  const { data: boutiques, loading } = useRealtimeCollection<any>('boutiques', {
+    enabled: true,
+  });
+
+  // Obtenir les quartiers disponibles pour la ville
+  const quartiersDisponibles = DomainService.getQuartiersByVille(
+    DomainService.getAllPays().find(p => p.nom === country)?.code || '',
+    city
+  );
+
+  // Obtenir les quartiers qui ont des boutiques
+  const quartiersAvecBoutiques = boutiques.length > 0
+    ? ['Tous', ...new Set(boutiques.map((b: any) => b.quartier).filter(Boolean))]
+    : ['Tous', ...quartiersDisponibles];
 
   const userBoutique: Boutique | null = boutiqueData.nom ? {
     id: 'user',
@@ -504,34 +374,22 @@ const QuartierScreen: React.FC = () => {
     description: boutiqueData.description || 'Votre boutique',
   } : null;
 
-  const allBoutiques = userBoutique ? [userBoutique, ...BOUTIQUES] : BOUTIQUES;
+  const allBoutiques = userBoutique ? [userBoutique, ...boutiques] : boutiques;
 
-  const filtred = allBoutiques.filter(b => {
-    const matchesSecteur = secteur === 'Tous' || 
-      (secteur === 'Quartier Électronique' && b.secteur === 'Électronique') ||
-      (secteur === 'Quartier Mode' && b.secteur === 'Mode') ||
-      (secteur === 'Quartier Bijoux' && b.secteur === 'Bijoux') ||
-      (secteur === 'Quartier Alimentaire' && b.secteur === 'Alimentaire') ||
-      (secteur === 'Quartier Sport' && b.secteur === 'Sport') ||
-      (secteur === 'Quartier Maison' && b.secteur === 'Maison');
-    const matchesSearch = b.nom.toLowerCase().includes(search.toLowerCase()) || 
+  const filtred = allBoutiques.filter((b: Boutique) => {
+    const matchesQuartier = quartier === 'Tous' || b.quartier === quartier;
+    const matchesSearch = b.nom.toLowerCase().includes(search.toLowerCase()) ||
                          b.proprietaire.toLowerCase().includes(search.toLowerCase());
     const matchesLocation = !country || b.ville === city || (country === 'France' && ['Paris', 'Lyon', 'Bordeaux', 'Marseille'].includes(b.ville));
-    return matchesSecteur && matchesSearch && matchesLocation;
+    return matchesQuartier && matchesSearch && matchesLocation;
   });
 
-  const COUNTRIES = [
-    { id: 'fr', name: 'France', flag: '🇫🇷', cities: ['Paris', 'Lyon', 'Bordeaux', 'Marseille', 'Nice', 'Strasbourg'] },
-    { id: 'be', name: 'Belgique', flag: '🇧🇪', cities: ['Bruxelles', 'Liège', 'Anvers', 'Gand', 'Charleroi'] },
-    { id: 'ch', name: 'Suisse', flag: '🇨🇭', cities: ['Zurich', 'Genève', 'Bâle', 'Berne', 'Lausanne'] },
-    { id: 'de', name: 'Allemagne', flag: '🇩🇪', cities: ['Berlin', 'Hambourg', 'Munich', 'Cologne', 'Francfort'] },
-    { id: 'es', name: 'Espagne', flag: '🇪🇸', cities: ['Madrid', 'Barcelone', 'Valence', 'Séville', 'Bilbao'] },
-    { id: 'it', name: 'Italie', flag: '🇮🇹', cities: ['Rome', 'Milan', 'Naples', 'Turin', 'Venise'] },
-    { id: 'uk', name: 'Royaume-Uni', flag: '🇬🇧', cities: ['Londres', 'Manchester', 'Birmingham', 'Liverpool', 'Édimbourg'] },
-    { id: 'us', name: 'États-Unis', flag: '🇺🇸', cities: ['New York', 'Los Angeles', 'Chicago', 'Miami', 'San Francisco'] },
-    { id: 'ca', name: 'Canada', flag: '🇨🇦', cities: ['Toronto', 'Montréal', 'Vancouver', 'Calgary', 'Ottawa'] },
-    { id: 'jp', name: 'Japon', flag: '🇯🇵', cities: ['Tokyo', 'Osaka', 'Kyoto', 'Yokohama', 'Nagoya'] },
-  ];
+  const COUNTRIES = DomainService.getAllPays().map(p => ({
+    id: p.code,
+    name: p.nom,
+    flag: p.flag,
+    cities: p.villes,
+  }));
 
   const groundCol = time === 'nuit' ? '#1E293B' : C.ground;
   const skyCol    = time === 'nuit' ? '#0F172A' : C.sky;
@@ -549,7 +407,7 @@ const QuartierScreen: React.FC = () => {
                 Quartier {city} {COUNTRIES.find(c => c.name === country)?.flag}
               </Text>
               <Text style={[s.headerSub, { color: time === 'nuit' ? '#94A3B8' : '#374151' }]}>
-                {country} · {filtred.length} boutique{filtred.length !== 1 ? 's' : ''} · {allBoutiques.filter(b => b.statut === 'ouvert').length} ouvertes
+                {country} · {filtred.length} boutique{filtred.length !== 1 ? 's' : ''} · {allBoutiques.filter((b: Boutique) => b.statut === 'ouvert').length} ouvertes
               </Text>
             </TouchableOpacity>
           </View>
@@ -588,9 +446,9 @@ const QuartierScreen: React.FC = () => {
         <AnimatedCard delay={50} style={s.filterRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}
             keyboardShouldPersistTaps="handled">
-            {SECTEURS.map(sec => (
-              <TouchableOpacity key={sec} style={[s.filterChip, secteur === sec && s.filterChipActive, time === 'nuit' && s.filterChipNight, secteur === sec && time === 'nuit' && s.filterChipActiveNight]} onPress={() => setSecteur(sec)}>
-                <Text style={[s.filterText, secteur === sec && s.filterTextActive]}>{sec}</Text>
+            {quartiersAvecBoutiques.map(q => (
+              <TouchableOpacity key={q} style={[s.filterChip, quartier === q && s.filterChipActive, time === 'nuit' && s.filterChipNight, quartier === q && time === 'nuit' && s.filterChipActiveNight]} onPress={() => setQuartier(q)}>
+                <Text style={[s.filterText, quartier === q && s.filterTextActive]}>{q}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -600,14 +458,21 @@ const QuartierScreen: React.FC = () => {
       {/* ── Street scene ─────────────────────────────────────────────── */}
       <View style={s.streetScene}>
         <SceneBackdrop width={SW} height={SH - 200} night={time === 'nuit'} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.boutiqueScroll} contentContainerStyle={s.boutiqueRow}
-          keyboardShouldPersistTaps="handled">
-          {filtred.map(b => (
-            <Facade key={b.id} b={b} selected={selected?.id === b.id} night={time === 'nuit'} onPress={() => setSelected(b)} />
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={s.loadingState}>
+            <ActivityIndicator size="large" color={C.navy} />
+            <Text style={s.loadingText}>Chargement des boutiques...</Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.boutiqueScroll} contentContainerStyle={s.boutiqueRow}
+            keyboardShouldPersistTaps="handled">
+            {filtred.map((b: Boutique) => (
+              <Facade key={b.id} b={b} selected={selected?.id === b.id} night={time === 'nuit'} onPress={() => setSelected(b)} />
+            ))}
+          </ScrollView>
+        )}
 
-        {filtred.length === 0 && (
+        {!loading && filtred.length === 0 && (
           <View style={s.emptyState}>
             <Text style={s.emptyIcon}>🔍</Text>
             <Text style={s.emptyText}>Aucune boutique trouvée</Text>
@@ -638,12 +503,14 @@ const QuartierScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <View style={footer.root}>
-        <Text style={footer.text}>Développée et gérée par</Text>
-        <Text style={footer.brand}>Axis com</Text>
-        <Text style={footer.tagline}>L'innovation au service du commerce</Text>
-      </View>
+      {/* ── Footer (only for non-logged-in users) ─────────────────────────────── */}
+      {!user && (
+        <View style={footer.root}>
+          <Text style={footer.text}>Développée et gérée par</Text>
+          <Text style={footer.brand}>Axis com</Text>
+          <Text style={footer.tagline}>L'innovation au service du commerce</Text>
+        </View>
+      )}
       
       {/* Country/Region Selector Modal */}
       <Modal visible={showCountrySelector} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCountrySelector(false)}>
@@ -723,6 +590,8 @@ const s = StyleSheet.create({
   emptyState: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyIcon: { fontSize: 48 },
   emptyText: { fontSize: 16, color: C.textMid, fontWeight: '500' },
+  loadingState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  loadingText: { fontSize: 16, color: C.textMid, fontWeight: '500' },
 });
 
 const innovation = StyleSheet.create({
