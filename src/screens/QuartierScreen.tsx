@@ -49,7 +49,7 @@ const C = {
 
 type RootStackParamList = {
   QuartierScreen: { country?: string; city?: string }; BusinessDashboard: undefined;
-  BoutiqueAppearance: undefined; BoutiqueCatalog: undefined;
+  BoutiqueAppearance: undefined; BoutiqueCatalog: { boutiqueId?: string };
 };
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -179,17 +179,56 @@ const SceneBackdrop: React.FC<{ width: number; height: number; night: boolean }>
         })}
       </G>
 
-      {/* Sidewalk */}
+      {/* Sidewalk with decorative tile pattern */}
       <Rect x="0" y={walkY} width={width} height={walkH} fill="url(#walk)" />
       <Line x1="0" y1={walkY + 1} x2={width} y2={walkY + 1} stroke={night ? '#535C7A' : '#FFFFFF'} strokeWidth="1.5" opacity={0.6} />
-      {/* Sidewalk seams */}
-      {[...Array(Math.ceil(width / 46))].map((_, i) => (
-        <Line key={i} x1={i * 46} y1={walkY} x2={i * 46} y2={walkY + walkH}
-          stroke={night ? '#3F465F' : '#CFD6DE'} strokeWidth="1" opacity={0.6} />
+      
+      {/* Decorative tile pattern — checkerboard paving stones */}
+      {[...Array(Math.ceil(width / 24))].map((_, i) => {
+        const x = i * 24;
+        const isLight = (i % 2 === 0);
+        return (
+          <G key={i}>
+            {/* Large paving stone */}
+            <Rect x={x} y={walkY + 2} width={22} height={walkH - 4} rx={1}
+              fill={isLight ? (night ? '#4A5268' : '#F5F7FA') : (night ? '#3E4558' : '#E8ECF2')}
+              stroke={night ? '#2B3147' : '#D1D9E6'} strokeWidth="0.8" opacity={0.85} />
+            {/* Inner texture lines */}
+            <Line x1={x + 4} y1={walkY + 6} x2={x + 4} y2={walkY + walkH - 6}
+              stroke={night ? '#535C7A' : '#B8C5D6'} strokeWidth="0.5" opacity={0.4} />
+            <Line x1={x + 18} y1={walkY + 6} x2={x + 18} y2={walkY + walkH - 6}
+              stroke={night ? '#535C7A' : '#B8C5D6'} strokeWidth="0.5" opacity={0.4} />
+          </G>
+        );
+      })}
+      
+      {/* Decorative border strip along the top of sidewalk */}
+      <Rect x="0" y={walkY + 2} width={width} height={3} fill={night ? '#3E4558' : '#D1D9E6'} opacity={0.6} />
+      {[...Array(Math.ceil(width / 12))].map((_, i) => (
+        <Rect key={i} x={i * 12} y={walkY + 2} width={10} height={3} rx={0.5}
+          fill={night ? '#4A5268' : '#E8ECF2'} opacity={0.8} />
       ))}
 
-      {/* Road */}
+      {/* Road with asphalt texture */}
       <Rect x="0" y={roadY} width={width} height={roadH} fill="url(#road)" />
+      
+      {/* Asphalt grain texture */}
+      {[...Array(Math.ceil(width / 8))].map((_, i) => {
+        const x = i * 8;
+        return (
+          <G key={i} opacity={0.15}>
+            <Circle cx={x + 2} cy={roadY + 8} r={0.8} fill={night ? '#0A0E18' : '#1A1F2E'} />
+            <Circle cx={x + 6} cy={roadY + 20} r={0.6} fill={night ? '#0A0E18' : '#1A1F2E'} />
+            <Circle cx={x + 4} cy={roadY + 36} r={0.7} fill={night ? '#0A0E18' : '#1A1F2E'} />
+            <Circle cx={x + 1} cy={roadY + 48} r={0.5} fill={night ? '#0A0E18' : '#1A1F2E'} />
+          </G>
+        );
+      })}
+      
+      {/* Road edge lines (curb markers) */}
+      <Line x1="0" y1={roadY} x2={width} y2={roadY} stroke={night ? '#4A5268' : '#5A6478'} strokeWidth="2" />
+      <Line x1="0" y1={roadY + roadH} x2={width} y2={roadY + roadH} stroke={night ? '#4A5268' : '#5A6478'} strokeWidth="2" />
+      
       {/* Centre dashes */}
       {[...Array(dashes)].map((_, i) => (
         <Rect key={i} x={i * 38 + 6} y={roadY + roadH / 2 - 2} width={20} height={4} rx={2}
@@ -199,42 +238,228 @@ const SceneBackdrop: React.FC<{ width: number; height: number; night: boolean }>
   );
 };
 
-// ─── SVG Façade — polished storefront ──────────────────────────────────────────
-const Facade: React.FC<{ b: Boutique; selected: boolean; night: boolean; onPress: () => void }> = ({ b, selected, night, onPress }) => {
-  const open = b.statut === 'ouvert';
+// ─── 2D Game Map Grid — tile-based map with paths and boutique placements ───────
+const GameMapGrid: React.FC<{ boutiques: Boutique[]; selected: Boutique | null; night: boolean; onSelect: (b: Boutique) => void; onEnter: (b: Boutique) => void }> = ({ boutiques, selected, night, onSelect, onEnter }) => {
+  const TILE_SIZE = 80;
+  const GRID_COLS = 6;
+  const GRID_ROWS = 5;
+
+  // Generate tile grid with paths, building spots, and prestige spots
+  const tiles: { type: 'path' | 'concrete' | 'building' | 'prestige'; row: number; col: number }[] = [];
+
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      // Create a path in the middle columns
+      if (col === 2 || col === 3) {
+        tiles.push({ type: 'path', row, col });
+      } else if ((row === 0 || row === 4) && (col === 0 || col === 5)) {
+        // Prestige spots in corners
+        tiles.push({ type: 'prestige', row, col });
+      } else if ((row === 1 || row === 2 || row === 3) && (col === 1 || col === 4)) {
+        // Building spots near the path
+        tiles.push({ type: 'building', row, col });
+      } else {
+        tiles.push({ type: 'concrete', row, col });
+      }
+    }
+  }
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ marginRight: 14, alignItems: 'center' }}>
-      <BoutiqueFacade
-        name={b.nom}
-        sector={b.secteur}
-        level={b.niveau}
-        night={night}
-        open={open}
-        color={b.couleur}
-        width={150}
-        selected={selected}
-      />
+    <View style={gm.gridContainer}>
+      {/* Tile grid */}
+      <Svg width={GRID_COLS * TILE_SIZE} height={GRID_ROWS * TILE_SIZE}>
+        <Defs>
+          <SvgGrad id="concrete" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={night ? '#2D3748' : '#E2E8F0'} />
+            <Stop offset="1" stopColor={night ? '#1A202C' : '#CBD5E0'} />
+          </SvgGrad>
+          <SvgGrad id="path" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={night ? '#4A5568' : '#A0AEC0'} />
+            <Stop offset="1" stopColor={night ? '#2D3748' : '#718096'} />
+          </SvgGrad>
+          <SvgGrad id="prestige" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={night ? '#7C3AED' : '#8B5CF6'} />
+            <Stop offset="1" stopColor={night ? '#5B21B6' : '#6D28D9'} />
+          </SvgGrad>
+        </Defs>
 
-      {/* Rating + status pill under the storefront */}
-      <View style={fc.nameRow}>
-        <Text style={[fc.name, night && { color: '#F1F5F9' }]} numberOfLines={1}>{b.nom}</Text>
-      </View>
-      <View style={fc.metaRow}>
-        {b.note > 0 && (
-          <View style={fc.ratingPill}>
-            <Text style={fc.ratingStar}>★</Text>
-            <Text style={fc.ratingTxt}>{b.note.toFixed(1)}</Text>
-          </View>
-        )}
-        <View style={[fc.statusDot, { backgroundColor: open ? C.success : '#94A3B8' }]} />
-        <Text style={[fc.statusTxt, night && { color: '#CBD5E1' }]}>{open ? 'Ouvert' : 'Fermé'}</Text>
-      </View>
+        {tiles.map((tile, i) => {
+          const x = tile.col * TILE_SIZE;
+          const y = tile.row * TILE_SIZE;
+
+          if (tile.type === 'concrete') {
+            return (
+              <G key={i}>
+                <Rect x={x} y={y} width={TILE_SIZE} height={TILE_SIZE} fill="url(#concrete)" />
+                {/* Concrete texture */}
+                {[...Array(5)].map((_, j) => (
+                  <Rect key={j} x={x + 4 + (j * 14)} y={y + 8 + ((j % 2) * 32)} width={10} height={10} rx={1}
+                    fill={night ? '#4A5568' : '#CBD5E0'} opacity={0.3} />
+                ))}
+                <Rect x={x} y={y} width={TILE_SIZE} height={TILE_SIZE} fill="none" stroke={night ? '#4A5568' : '#A0AEC0'} strokeWidth="0.5" opacity={0.4} />
+              </G>
+            );
+          } else if (tile.type === 'path') {
+            return (
+              <G key={i}>
+                <Rect x={x} y={y} width={TILE_SIZE} height={TILE_SIZE} fill="url(#path)" />
+                {/* Paving stones */}
+                {[...Array(4)].map((_, j) => (
+                  <Rect key={j} x={x + 6 + (j * 16)} y={y + 6 + ((j % 2) * 32)} width={14} height={14} rx={2}
+                    fill={night ? '#718096' : '#E2E8F0'} opacity={0.5} />
+                ))}
+              </G>
+            );
+          } else if (tile.type === 'prestige') {
+            return (
+              <G key={i}>
+                <Rect x={x} y={y} width={TILE_SIZE} height={TILE_SIZE} fill="url(#prestige)" />
+                {/* Prestige pattern */}
+                <Rect x={x + 4} y={y + 4} width={TILE_SIZE - 8} height={TILE_SIZE - 8} rx={4}
+                  fill="none" stroke={night ? '#A78BFA' : '#C4B5FD'} strokeWidth="2" opacity={0.6} />
+                <Rect x={x + 12} y={y + 12} width={TILE_SIZE - 24} height={TILE_SIZE - 24} rx={2}
+                  fill="none" stroke={night ? '#A78BFA' : '#C4B5FD'} strokeWidth="1" opacity={0.4} />
+                {/* Star icon */}
+                <SvgText x={x + TILE_SIZE / 2} y={y + TILE_SIZE / 2 + 4} fontSize={16} fill={night ? '#FCD34D' : '#F59E0B'} textAnchor="middle" fontWeight="bold">★</SvgText>
+              </G>
+            );
+          }
+          return null;
+        })}
+      </Svg>
+
+      {/* Boutique buildings placed on building tiles */}
+      {boutiques.slice(0, 6).map((b, i) => {
+        const buildingTiles = tiles.filter(t => t.type === 'building');
+        const tile = buildingTiles[i % buildingTiles.length];
+        if (!tile) return null;
+
+        const x = tile.col * TILE_SIZE + (TILE_SIZE - 70) / 2;
+        const y = tile.row * TILE_SIZE + (TILE_SIZE - 70) / 2;
+        const isOpen = b.statut === 'ouvert';
+        const isSelected = selected?.id === b.id;
+
+        return (
+          <TouchableOpacity 
+            key={b.id} 
+            onPress={() => onSelect(b)} 
+            onLongPress={() => onEnter(b)}
+            activeOpacity={0.9} 
+            style={[gm.buildingSpot, { 
+              left: x, 
+              top: y,
+              width: isSelected ? 90 : 70,
+              height: isSelected ? 90 : 70,
+              transform: [{ scale: isSelected ? 1.3 : 1 }]
+            }]}
+          >
+            {/* Neon square border around boutique */}
+            <View style={[gm.neonBorder, { 
+              borderColor: b.couleur,
+              shadowColor: b.couleur,
+              shadowOpacity: night && isOpen ? 0.8 : 0.4,
+              shadowRadius: night && isOpen ? 12 : 6
+            }]} />
+            
+            {/* Boutique tile */}
+            <View style={[gm.boutiqueTile, { 
+              backgroundColor: night ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)',
+              borderColor: b.couleur,
+              borderWidth: 1
+            }]}>
+              {/* Boutique emoji/icon */}
+              <Text style={gm.boutiqueEmoji}>{b.emoji}</Text>
+              
+              {/* Boutique name */}
+              <Text style={[gm.boutiqueTileName, night && { color: '#F1F5F9' }]} numberOfLines={1}>
+                {b.nom}
+              </Text>
+              
+              {/* Sector/Market display */}
+              <Text style={[gm.sectorText, night && { color: '#CBD5E1' }]} numberOfLines={1}>
+                {b.secteur}
+              </Text>
+              
+              {/* Status indicator */}
+              <View style={[gm.tileStatus, { backgroundColor: isOpen ? (night ? '#10B981' : '#22C55E') : (night ? '#64748B' : '#94A3B8') }]} />
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
+const gm = StyleSheet.create({
+  gridContainer: { position: 'relative', width: '100%', alignItems: 'center', paddingVertical: 20, zIndex: 5 },
+  buildingSpot: { position: 'absolute', alignItems: 'center', zIndex: 10 },
+  neonBorder: { position: 'absolute', top: -4, left: -4, right: -4, bottom: -4, borderWidth: 3, borderRadius: 8, elevation: 8 },
+  boutiqueTile: { width: '100%', height: '100%', borderRadius: 8, padding: 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  boutiqueEmoji: { fontSize: 20 },
+  boutiqueTileName: { fontSize: 10, fontWeight: '700', color: '#1E293B', textAlign: 'center' },
+  sectorText: { fontSize: 8, fontWeight: '500', color: '#64748B', textAlign: 'center' },
+  tileStatus: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: '#FFFFFF' },
+  nightGlow: { position: 'absolute', width: 130, height: 150, borderRadius: 16, top: -10, left: -10, zIndex: 1 },
+  buildingBg: { padding: 8, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, zIndex: 2 },
+  statusIndicator: { position: 'absolute', top: 4, right: 4, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: '#FFFFFF', zIndex: 3 },
+  buildingLabel: { marginTop: 4, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
+  buildingLabelNight: { backgroundColor: 'rgba(30,41,59,0.95)' },
+  buildingName: { fontSize: 11, fontWeight: '700', color: '#1E293B', textAlign: 'center' },
+});
+
+// ─── SVG Façade — polished storefront ──────────────────────────────────────────
+// Tapping the storefront zooms it in, then opens the boutique catalogue.
+const Facade: React.FC<{ b: Boutique; selected: boolean; night: boolean; onPress: () => void }> = ({ b, selected, night, onPress }) => {
+  const open = b.statut === 'ouvert';
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.timing(scale, {
+      toValue: 1.22,
+      duration: 240,
+      easing: Easing.out(Easing.back(1.6)),
+      useNativeDriver: true,
+    }).start(() => {
+      onPress();          // navigate to the catalogue
+      scale.setValue(1);  // reset for when the user comes back
+    });
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.9} style={{ marginRight: 20, alignItems: 'center' }}>
+      <Animated.View style={{ alignItems: 'center', transform: [{ scale }] }}>
+        {/* The real storefront artwork — the boutique name is on its sign */}
+        <BoutiqueFacade
+          name={b.nom}
+          sector={b.secteur}
+          level={b.niveau}
+          night={night}
+          open={open}
+          color={b.couleur}
+          width={300}
+          selected={selected}
+        />
+
+        {/* Rating + status pill under the storefront */}
+        <View style={fc.metaRow}>
+          {b.note > 0 && (
+            <View style={fc.ratingPill}>
+              <Text style={fc.ratingStar}>★</Text>
+              <Text style={fc.ratingTxt}>{b.note.toFixed(1)}</Text>
+            </View>
+          )}
+          <View style={[fc.statusDot, { backgroundColor: open ? C.success : '#94A3B8' }]} />
+          <Text style={[fc.statusTxt, night && { color: '#CBD5E1' }]}>{open ? 'Ouvert' : 'Fermé'}</Text>
+        </View>
+      </Animated.View>
     </TouchableOpacity>
   );
 };
 
 const fc = StyleSheet.create({
+  boutiqueSpace: { position: 'relative', paddingBottom: 8 },
+  boutiqueSpaceNight: { paddingBottom: 8 },
+  floorTile: { position: 'absolute', bottom: 0, left: -10, right: -10, height: 16, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   nameRow:    { marginTop: 6, maxWidth: 124 },
   name:       { fontSize: 12, fontWeight: '800', color: C.textDark, textAlign: 'center' },
   metaRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
@@ -306,15 +531,9 @@ const BoutiqueModal: React.FC<{ b: Boutique | null; onClose: () => void }> = ({ 
 
           <View style={md.divider} />
 
-          {b.statut === 'ouvert' ? (
-            <TouchableOpacity style={[md.ctaBtn, { backgroundColor: b.couleur }]} onPress={() => { onClose(); navigation.navigate('BoutiqueCatalog' as any); }} activeOpacity={0.87}>
-              <Text style={[md.ctaBtnText, { color: b.accentC }]}>🛒 Entrer dans la boutique</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={md.ctaBtnDisabled}>
-              <Text style={md.ctaBtnDisabledText}>{b.statut === 'ferme' ? 'Boutique fermée — revenez bientôt' : '🔒 Boutique inaccessible'}</Text>
-            </View>
-          )}
+          <TouchableOpacity style={[md.ctaBtn, { backgroundColor: b.couleur }]} onPress={() => { onClose(); navigation.navigate('BoutiqueCatalog' as any, { boutiqueId: b.id }); }} activeOpacity={0.87}>
+            <Text style={[md.ctaBtnText, { color: '#FFFFFF' }]}>🛒 Voir le catalogue</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={md.favBtn} onPress={onClose}>
             <Text style={md.favBtnText}>♡ Ajouter aux favoris</Text>
@@ -323,6 +542,25 @@ const BoutiqueModal: React.FC<{ b: Boutique | null; onClose: () => void }> = ({ 
       </View>
     </Modal>
   );
+};
+
+// ─── Helper: Get Congo time (UTC+1) and determine day/night ───────────────────
+const getCongoTime = () => {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const congoTime = new Date(utc + (3600000 * 1)); // UTC+1
+  return congoTime;
+};
+
+const isNightTime = (date: Date) => {
+  const hour = date.getHours();
+  return hour >= 19 || hour < 6; // Night: 19:00 - 06:00
+};
+
+const formatCongoTime = (date: Date) => {
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 };
 
 // ─── Main QuartierScreen ──────────────────────────────────────────────────────
@@ -336,10 +574,31 @@ const QuartierScreen: React.FC = () => {
   const [quartier, setQuartier] = useState('Tous');
   const [search, setSearch]     = useState('');
   const [selected, setSelected] = useState<Boutique | null>(null);
-  const [time, setTime]         = useState<'jour' | 'nuit'>('jour');
+  const [time, setTime]         = useState<'jour' | 'nuit'>(() => isNightTime(getCongoTime()) ? 'nuit' : 'jour');
+  const [congoTime, setCongoTime] = useState(getCongoTime());
   const [country, setCountry]   = useState(routeParams?.country || 'France');
   const [city, setCity]         = useState(routeParams?.city || 'Paris');
   const [showCountrySelector, setShowCountrySelector] = useState(false);
+
+  // Entering a boutique → open its catalogue
+  const handleEnterBoutique = (b: Boutique) => {
+    console.log('Navigating to boutique catalog with ID:', b.id, 'Boutique:', b);
+    if (!b.id) {
+      console.error('Boutique ID is missing:', b);
+      return;
+    }
+    navigation.navigate('BoutiqueCatalog' as any, { boutiqueId: b.id });
+  };
+
+  // Update time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newCongoTime = getCongoTime();
+      setCongoTime(newCongoTime);
+      setTime(isNightTime(newCongoTime) ? 'nuit' : 'jour');
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch boutiques from Firestore in real-time
   const { data: boutiques, loading } = useRealtimeCollection<any>('boutiques', {
@@ -409,15 +668,24 @@ const QuartierScreen: React.FC = () => {
               <Text style={[s.headerSub, { color: time === 'nuit' ? '#94A3B8' : '#374151' }]}>
                 {country} · {filtred.length} boutique{filtred.length !== 1 ? 's' : ''} · {allBoutiques.filter((b: Boutique) => b.statut === 'ouvert').length} ouvertes
               </Text>
+              <Text style={[s.timeDisplay, { color: time === 'nuit' ? '#FBD38D' : '#F59E0B' }]}>
+                🕐 {formatCongoTime(congoTime)} · Congo (UTC+1) · {time === 'nuit' ? '🌙 Nuit' : '☀️ Jour'}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={s.headerRight}>
             <TouchableOpacity style={[s.timeToggle, { backgroundColor: time === 'nuit' ? '#1E293B' : C.white }]} onPress={() => setTime(t => t === 'jour' ? 'nuit' : 'jour')}>
               <Text style={s.timeToggleText}>{time === 'jour' ? '🌙' : '☀️'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.dashBtn} onPress={() => navigation.navigate('BusinessDashboard')}>
-              <Text style={s.dashBtnText}>Ma boutique →</Text>
-            </TouchableOpacity>
+            {userBoutique ? (
+              <TouchableOpacity style={s.dashBtn} onPress={() => navigation.navigate('BusinessDashboard' as any)}>
+                <Text style={s.dashBtnText}>Ma boutique →</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={s.dashBtn} onPress={() => navigation.navigate('CreateBoutique' as any)}>
+                <Text style={s.dashBtnText}>Créer boutique →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -455,7 +723,7 @@ const QuartierScreen: React.FC = () => {
         </AnimatedCard>
       </View>
 
-      {/* ── Street scene ─────────────────────────────────────────────── */}
+      {/* ── 2D Game Map ─────────────────────────────────────────────── */}
       <View style={s.streetScene}>
         <SceneBackdrop width={SW} height={SH - 200} night={time === 'nuit'} />
         {loading ? (
@@ -464,10 +732,22 @@ const QuartierScreen: React.FC = () => {
             <Text style={s.loadingText}>Chargement des boutiques...</Text>
           </View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.boutiqueScroll} contentContainerStyle={s.boutiqueRow}
-            keyboardShouldPersistTaps="handled">
-            {filtred.map((b: Boutique) => (
-              <Facade key={b.id} b={b} selected={selected?.id === b.id} night={time === 'nuit'} onPress={() => setSelected(b)} />
+          <ScrollView
+            horizontal
+            style={s.mapScroll}
+            contentContainerStyle={s.facadeRow}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {filtred.map((b) => (
+              <Facade
+                key={b.id}
+                b={b}
+                selected={selected?.id === b.id}
+                night={time === 'nuit'}
+                onPress={() => handleEnterBoutique(b)}
+              />
             ))}
           </ScrollView>
         )}
@@ -569,6 +849,7 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   headerSub: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  timeDisplay: { fontSize: 12, fontWeight: '600', marginTop: 4, opacity: 0.9 },
   headerRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   locationBtn: { gap: 2 },
   timeToggle: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
@@ -585,9 +866,12 @@ const s = StyleSheet.create({
   filterText: { fontSize: 13, color: C.textMid, fontWeight: '500' },
   filterTextActive: { color: C.white, fontWeight: '600' },
   streetScene: { flex: 1, marginTop: 200, overflow: 'hidden' },
+  mapScroll: { position: 'absolute', left: 0, right: 0, bottom: 44, top: 16 },
+  mapContent: { alignItems: 'center', paddingVertical: 20, paddingHorizontal: 20 },
+  facadeRow: { flexGrow: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 18 },
   boutiqueScroll: { position: 'absolute', left: 0, right: 0, bottom: 44, top: 16 },
   boutiqueRow: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, gap: 10, minWidth: '100%' },
-  emptyState: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyState: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)' },
   emptyIcon: { fontSize: 48 },
   emptyText: { fontSize: 16, color: C.textMid, fontWeight: '500' },
   loadingState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
