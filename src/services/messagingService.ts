@@ -1,10 +1,10 @@
 import { FirestoreService } from './firestoreService';
-import { where } from 'firebase/firestore';
+import { where, orderBy } from 'firebase/firestore';
 
 export interface Message {
   id?: string;
   conversationId: string;
-  senderId: string; // ID de l'expéditeur (visiteur ou boutique)
+  senderId: string;
   senderName: string;
   text: string;
   timestamp?: any;
@@ -13,13 +13,13 @@ export interface Message {
 
 export interface Conversation {
   id?: string;
-  buyerId: string; // ID du visiteur
+  buyerId: string;
   buyerName: string;
-  storeId: string; // ID de la boutique
+  storeId: string;
   storeName: string;
   lastMessage?: string;
   lastMessageTimestamp?: any;
-  unreadCount: number; // Nombre de messages non lus pour ce destinataire
+  unreadCount: number;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -32,6 +32,10 @@ export const MessagingService = {
     const conversationId = await FirestoreService.create<Conversation>('conversations', {
       ...data,
       unreadCount: 0,
+      lastMessage: '',
+      lastMessageTimestamp: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
     return conversationId;
   },
@@ -44,38 +48,32 @@ export const MessagingService = {
   },
 
   /**
-   * Obtenir toutes les conversations d'un visiteur
+   * Obtenir toutes les conversations d'un utilisateur (client ou boutique)
    */
-  async getBuyerConversations(buyerId: string): Promise<Conversation[]> {
+  async getUserConversations(userId: string, userType: 'buyer' | 'business'): Promise<Conversation[]> {
+    const field = userType === 'buyer' ? 'buyerId' : 'storeId';
     return FirestoreService.query<Conversation>('conversations', [
-      where('buyerId', '==', buyerId),
+      where(field, '==', userId),
     ]);
   },
 
   /**
-   * Obtenir toutes les conversations d'une boutique
-   */
-  async getStoreConversations(storeId: string): Promise<Conversation[]> {
-    return FirestoreService.query<Conversation>('conversations', [
-      where('storeId', '==', storeId),
-    ]);
-  },
-
-  /**
-   * Obtenir ou créer une conversation entre un visiteur et une boutique
+   * Obtenir ou créer une conversation entre un client et une boutique
    */
   async getOrCreateConversation(buyerId: string, buyerName: string, storeId: string, storeName: string): Promise<Conversation> {
-    // Essayer de trouver une conversation existante
-    const existing = await FirestoreService.query<Conversation>('conversations', [
-      where('buyerId', '==', buyerId),
-      where('storeId', '==', storeId),
-    ]);
+    try {
+      const existing = await FirestoreService.query<Conversation>('conversations', [
+        where('buyerId', '==', buyerId),
+        where('storeId', '==', storeId),
+      ]);
 
-    if (existing.length > 0) {
-      return existing[0];
+      if (existing.length > 0) {
+        return existing[0];
+      }
+    } catch (error) {
+      console.error('Error querying existing conversation:', error);
     }
 
-    // Créer une nouvelle conversation
     const conversationId = await this.createConversation({
       buyerId,
       buyerName,
@@ -92,26 +90,32 @@ export const MessagingService = {
   },
 
   /**
-   * Envoyer un message
+   * Envoyer un message texte
    */
   async sendMessage(conversationId: string, senderId: string, senderName: string, text: string): Promise<string> {
+    const conversation = await this.getConversation(conversationId);
+    if (!conversation) {
+      throw new Error('Conversation does not exist');
+    }
+
     const messageId = await FirestoreService.create<Message>('messages', {
       conversationId,
       senderId,
       senderName,
       text,
       read: false,
+      timestamp: new Date(),
     });
 
-    // Mettre à jour la conversation avec le dernier message
-    const conversation = await this.getConversation(conversationId);
-    if (conversation) {
-      await FirestoreService.update<Conversation>('conversations', conversationId, {
-        lastMessage: text,
-        lastMessageTimestamp: new Date(),
-        unreadCount: (conversation.unreadCount || 0) + 1,
-      });
-    }
+    const recipientId = senderId === conversation.buyerId ? conversation.storeId : conversation.buyerId;
+    const recipientUnreadCount = senderId === conversation.buyerId ? 1 : 0;
+    
+    await FirestoreService.update<Conversation>('conversations', conversationId, {
+      lastMessage: text,
+      lastMessageTimestamp: new Date(),
+      unreadCount: recipientUnreadCount,
+      updatedAt: new Date(),
+    });
 
     return messageId;
   },
@@ -120,16 +124,23 @@ export const MessagingService = {
    * Obtenir tous les messages d'une conversation
    */
   async getMessages(conversationId: string): Promise<Message[]> {
-    return FirestoreService.query<Message>('messages', [
-      where('conversationId', '==', conversationId),
-    ]);
+    try {
+      return await FirestoreService.query<Message>('messages', [
+        where('conversationId', '==', conversationId),
+        orderBy('timestamp', 'asc'),
+      ]);
+    } catch (error) {
+      console.error('Error getting messages:', error);
+      return await FirestoreService.query<Message>('messages', [
+        where('conversationId', '==', conversationId),
+      ]);
+    }
   },
 
   /**
    * Marquer les messages comme lus
    */
   async markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
-    // Marquer tous les messages non lus de cette conversation comme lus
     const messages = await this.getMessages(conversationId);
     const unreadMessages = messages.filter(m => !m.read && m.senderId !== userId);
 
@@ -139,7 +150,6 @@ export const MessagingService = {
       }
     }
 
-    // Réinitialiser le compteur de messages non lus
     const conversation = await this.getConversation(conversationId);
     if (conversation) {
       await FirestoreService.update<Conversation>('conversations', conversationId, {
@@ -152,26 +162,34 @@ export const MessagingService = {
    * Écouter les messages d'une conversation en temps réel
    */
   subscribeToMessages(conversationId: string, callback: (messages: Message[]) => void) {
-    return FirestoreService.onQuery<Message>('messages', [
-      where('conversationId', '==', conversationId),
-    ], callback);
+    try {
+      return FirestoreService.onQuery<Message>('messages', [
+        where('conversationId', '==', conversationId),
+        orderBy('timestamp', 'asc'),
+      ], callback);
+    } catch (error) {
+      console.error('Error subscribing to messages:', error);
+      return FirestoreService.onQuery<Message>('messages', [
+        where('conversationId', '==', conversationId),
+      ], callback);
+    }
   },
 
   /**
-   * Écouter les conversations d'un visiteur en temps réel
+   * Écouter les conversations d'un utilisateur en temps réel
    */
-  subscribeToBuyerConversations(buyerId: string, callback: (conversations: Conversation[]) => void) {
-    return FirestoreService.onQuery<Conversation>('conversations', [
-      where('buyerId', '==', buyerId),
-    ], callback);
-  },
-
-  /**
-   * Écouter les conversations d'une boutique en temps réel
-   */
-  subscribeToStoreConversations(storeId: string, callback: (conversations: Conversation[]) => void) {
-    return FirestoreService.onQuery<Conversation>('conversations', [
-      where('storeId', '==', storeId),
-    ], callback);
+  subscribeToUserConversations(userId: string, userType: 'buyer' | 'business', callback: (conversations: Conversation[]) => void) {
+    const field = userType === 'buyer' ? 'buyerId' : 'storeId';
+    try {
+      return FirestoreService.onQuery<Conversation>('conversations', [
+        where(field, '==', userId),
+        orderBy('lastMessageTimestamp', 'desc'),
+      ], callback);
+    } catch (error) {
+      console.error('Error subscribing to conversations:', error);
+      return FirestoreService.onQuery<Conversation>('conversations', [
+        where(field, '==', userId),
+      ], callback);
+    }
   },
 };

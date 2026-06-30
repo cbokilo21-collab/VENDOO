@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
   TextInput, Image, Platform, ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useProducts } from '../contexts/ProductsContext';
 import { useBoutique } from '../contexts/BoutiqueContext';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
+import { where, getDoc, doc, getFirestore } from 'firebase/firestore';
 
 // Fixed-width cards that wrap (Shopify-style) — robust to sidebar/content width.
 const GRID_PAD = 16;
@@ -30,22 +32,65 @@ const Ico = ({ d, s = 20, c = C.text }: { d: string; s?: number; c?: string }) =
 
 const BoutiqueCatalogScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const route = useRoute();
+  const routeParams = route.params as { boutiqueId?: string } | undefined;
+  console.log('BoutiqueCatalogScreen - routeParams:', routeParams);
   const { products, loading } = useProducts();
   const { boutiqueData } = useBoutique();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [externalBoutique, setExternalBoutique] = useState<any>(null);
+  const [externalBoutiqueLoading, setExternalBoutiqueLoading] = useState(false);
+
+  // If boutiqueId is provided, load that boutique's data
+  useEffect(() => {
+    const loadBoutique = async () => {
+      if (routeParams?.boutiqueId) {
+        console.log('Loading boutique with ID:', routeParams.boutiqueId);
+        setExternalBoutiqueLoading(true);
+        try {
+          const db = getFirestore();
+          const boutiqueDoc = await getDoc(doc(db, 'boutiques', routeParams.boutiqueId));
+          console.log('Boutique doc exists:', boutiqueDoc.exists());
+          if (boutiqueDoc.exists()) {
+            const boutiqueData = { id: boutiqueDoc.id, ...boutiqueDoc.data() };
+            console.log('Loaded boutique:', boutiqueData);
+            setExternalBoutique(boutiqueData);
+          } else {
+            console.error('Boutique not found with ID:', routeParams.boutiqueId);
+          }
+        } catch (error) {
+          console.error('Error loading boutique:', error);
+        } finally {
+          setExternalBoutiqueLoading(false);
+        }
+      }
+    };
+    loadBoutique();
+  }, [routeParams?.boutiqueId]);
+
+  // Load products for the external boutique if boutiqueId is provided
+  const { data: externalProducts, loading: externalLoading } = useRealtimeCollection<any>('products', {
+    enabled: !!routeParams?.boutiqueId,
+    constraints: routeParams?.boutiqueId ? [where('boutique_id', '==', routeParams.boutiqueId)] : [],
+  });
+
+  // Use external boutique data if provided, otherwise use user's boutique
+  const currentBoutique = externalBoutique || boutiqueData;
+  const currentProducts = routeParams?.boutiqueId ? externalProducts : products;
+  const currentLoading = routeParams?.boutiqueId ? (externalBoutiqueLoading || externalLoading) : loading;
 
   // Build category list from real products
-  const categories = ['Tous', ...Array.from(new Set(products.map(p => p.categorie).filter(Boolean)))];
+  const categories = ['Tous', ...Array.from(new Set(currentProducts.map(p => p.categorie).filter(Boolean)))];
 
-  const filtered = products.filter(p => {
+  const filtered = currentProducts.filter(p => {
     const matchesSearch = p.nom.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === 'Tous' || p.categorie === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const shopName = boutiqueData?.nom || 'Ma Boutique';
-  const initials = shopName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const shopName = currentBoutique?.nom || 'Ma Boutique';
+  const initials = shopName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
 
   const renderProduct = ({ item: p }: { item: any }) => (
     <TouchableOpacity style={s.productCard} activeOpacity={0.85}>
@@ -73,23 +118,23 @@ const BoutiqueCatalogScreen: React.FC = () => {
         <View style={s.banner}>
           <View style={s.bannerCover} />
           <View style={s.shopRow}>
-            <View style={[s.shopAvatar, { backgroundColor: boutiqueData?.couleur || C.accent }]}>
+            <View style={[s.shopAvatar, { backgroundColor: currentBoutique?.couleur || C.accent }]}>
               <Text style={s.shopAvatarText}>{initials}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.shopName}>{shopName}</Text>
-              {boutiqueData?.ville ? (
-                <Text style={s.shopMeta}>{boutiqueData.ville}{boutiqueData.secteur ? ` · ${boutiqueData.secteur}` : ''}</Text>
+              {currentBoutique?.ville ? (
+                <Text style={s.shopMeta}>{currentBoutique.ville}{currentBoutique.secteur ? ` · ${currentBoutique.secteur}` : ''}</Text>
               ) : (
                 <Text style={s.shopMeta}>Boutique en ligne</Text>
               )}
-              {boutiqueData?.shopUrl && (
-                <Text style={s.shopUrl}>{boutiqueData.shopUrl}</Text>
+              {currentBoutique?.shopUrl && (
+                <Text style={s.shopUrl}>{currentBoutique.shopUrl}</Text>
               )}
             </View>
           </View>
-          {boutiqueData?.description ? (
-            <Text style={s.shopDesc}>{boutiqueData.description}</Text>
+          {currentBoutique?.description ? (
+            <Text style={s.shopDesc}>{currentBoutique.description}</Text>
           ) : null}
         </View>
 
@@ -122,7 +167,7 @@ const BoutiqueCatalogScreen: React.FC = () => {
         )}
 
         {/* Products */}
-        {loading ? (
+        {currentLoading ? (
           <View style={s.centerBox}>
             <ActivityIndicator size="large" color={C.accent} />
           </View>
@@ -131,7 +176,7 @@ const BoutiqueCatalogScreen: React.FC = () => {
             <Ico d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" s={40} c={C.muted} />
             <Text style={s.emptyText}>Aucun produit</Text>
             <Text style={s.emptySub}>
-              {products.length === 0 ? 'Ajoutez des produits depuis l\'onglet Produits' : 'Aucun résultat pour cette recherche'}
+              {currentProducts.length === 0 ? 'Ajoutez des produits depuis l\'onglet Produits' : 'Aucun résultat pour cette recherche'}
             </Text>
           </View>
         ) : (

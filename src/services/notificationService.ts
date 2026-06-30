@@ -1,10 +1,11 @@
 import { FirestoreService } from './firestoreService';
 import { where } from 'firebase/firestore';
+import { MessagingService } from './messagingService';
 
 export interface Notification {
   id?: string;
   userId: string;
-  type: 'order' | 'message' | 'promotion' | 'review' | 'delivery' | 'system';
+  type: 'order' | 'message' | 'promotion' | 'review' | 'delivery' | 'system' | 'broadcast';
   title: string;
   body: string;
   data?: Record<string, any>; // Données supplémentaires (orderId, storeId, etc.)
@@ -132,13 +133,52 @@ export const NotificationService = {
   /**
    * Créer une notification de message
    */
-  async createMessageNotification(userId: string, conversationId: string, senderName: string): Promise<void> {
+  async createMessageNotification(
+    userId: string,
+    conversationId: string,
+    senderName: string,
+    buyerId?: string,
+    buyerName?: string,
+    storeId?: string,
+    storeName?: string
+  ): Promise<void> {
+    // D'abord, s'assurer que la conversation existe
+    try {
+      const conversation = await MessagingService.getConversation(conversationId);
+      if (!conversation && buyerId && buyerName && storeId && storeName) {
+        // Créer la conversation si elle n'existe pas
+        const newConversationId = await MessagingService.createConversation({
+          buyerId,
+          buyerName,
+          storeId,
+          storeName,
+        });
+        console.log('Created conversation from notification:', newConversationId);
+      }
+    } catch (error) {
+      console.error('Error checking/creating conversation:', error);
+    }
+
+    // Créer la notification
     await this.create(userId, {
       type: 'message',
       title: 'Nouveau message',
       body: `Vous avez reçu un message de ${senderName}`,
-      data: { conversationId, senderName },
+      data: { conversationId, senderName, buyerId, buyerName, storeId, storeName },
     });
+
+    // Mettre à jour le compteur de non-lus si la conversation existe
+    try {
+      const conversation = await MessagingService.getConversation(conversationId);
+      if (conversation) {
+        await FirestoreService.update('conversations', conversationId, {
+          unreadCount: (conversation.unreadCount || 0) + 1,
+          lastMessageTimestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error('Error updating unread count:', error);
+    }
   },
 
   /**

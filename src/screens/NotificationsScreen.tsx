@@ -7,7 +7,7 @@ import { NotificationService, Notification } from '../services/notificationServi
 import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 import { T } from '../theme';
 
-type NotifType = 'order' | 'message' | 'promotion' | 'review' | 'delivery' | 'system';
+type NotifType = 'order' | 'message' | 'promotion' | 'review' | 'delivery' | 'system' | 'broadcast';
 
 const getTypeConfig = (t: any) => ({
   order:     { color: T.info,    label: t('notifications.typeOrder') },
@@ -16,6 +16,7 @@ const getTypeConfig = (t: any) => ({
   review:    { color: T.success, label: t('notifications.typeReview')      },
   delivery:  { color: T.orange,  label: t('notifications.typeDelivery') },
   system:    { color: T.muted,   label: t('notifications.typeSystem')  },
+  broadcast: { color: T.violet,  label: 'Message Global' },
 });
 
 const NotifIcon: React.FC<{ type: NotifType; color: string }> = ({ type, color }) => {
@@ -126,6 +127,24 @@ const NotificationsScreen: React.FC = () => {
     if (notification.type === 'order' && notification.data?.orderId) {
       (navigation as any).navigate('OrderTracking', { orderId: notification.data.orderId });
     } else if (notification.type === 'message' && notification.data?.conversationId) {
+      // Créer la conversation si elle n'existe pas
+      const { conversationId, buyerId, buyerName, storeId, storeName } = notification.data;
+      if (buyerId && buyerName && storeId && storeName) {
+        try {
+          const { MessagingService } = await import('../services/messagingService');
+          const existing = await MessagingService.getConversation(conversationId);
+          if (!existing) {
+            await MessagingService.createConversation({
+              buyerId,
+              buyerName,
+              storeId,
+              storeName,
+            });
+          }
+        } catch (error) {
+          console.error('Error creating conversation from notification:', error);
+        }
+      }
       (navigation as any).navigate('Messages');
     } else if (notification.type === 'order') {
       (navigation as any).navigate('MyOrders');

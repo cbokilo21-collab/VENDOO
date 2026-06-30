@@ -5,6 +5,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { useBoutique } from '../contexts/BoutiqueContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useRealtimeCollection } from '../hooks/useRealtimeData';
+import { where } from 'firebase/firestore';
 
 const C = {
   navy: '#FF6B35', sideMuted: '#64748B',
@@ -29,19 +33,6 @@ interface Boutique {
   revenus: string; commandes: number; produits: number; ouvert: boolean;
 }
 
-const BOUTIQUES: Boutique[] = [
-  {
-    id: 'b1', nom: 'Mode Étoile', secteur: 'Mode', emoji: '👗',
-    ville: 'Paris', couleur: C.accent, niveau: 4,
-    revenus: '€ 84 250', commandes: 142, produits: 87, ouvert: true,
-  },
-  {
-    id: 'b2', nom: 'Tech Store Lyon', secteur: 'Électronique', emoji: '📱',
-    ville: 'Lyon', couleur: C.info, niveau: 2,
-    revenus: '€ 31 600', commandes: 67, produits: 53, ouvert: true,
-  },
-];
-
 const quickActions = [
   { label: 'Voir le quartier',     emoji: '🏘️', route: 'QuartierScreen',   color: C.info    },
   { label: 'Modifier la façade',   emoji: '🎨', route: 'BoutiqueAppearance',color: C.purple  },
@@ -51,6 +42,29 @@ const quickActions = [
 
 const BoutiqueManagementScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { boutiqueData } = useBoutique();
+  const { user } = useAuth();
+  
+  // Load boutiques from Firestore for the current user
+  const { data: boutiques, loading } = useRealtimeCollection<any>('boutiques', {
+    enabled: !!user?.uid,
+    constraints: user?.uid ? [where('userId', '==', user.uid)] : [],
+  });
+
+  // Map Firestore boutiques to the Boutique interface
+  const mappedBoutiques: Boutique[] = boutiques.map((b: any) => ({
+    id: b.id,
+    nom: b.nom || 'Sans nom',
+    secteur: b.secteur || 'Non défini',
+    emoji: '🏪',
+    ville: b.ville || 'Non défini',
+    couleur: b.couleur || C.accent,
+    niveau: b.niveau || 1,
+    revenus: '€ 0',
+    commandes: 0,
+    produits: 0,
+    ouvert: b.statut === 'ouvert',
+  }));
 
   return (
     <View style={s.root}>
@@ -63,7 +77,7 @@ const BoutiqueManagementScreen: React.FC = () => {
         </TouchableOpacity>
         <View>
           <Text style={s.headerTitle}>Mes boutiques</Text>
-          <Text style={s.headerSub}>{BOUTIQUES.length} espace{BOUTIQUES.length > 1 ? 's' : ''} commercial{BOUTIQUES.length > 1 ? 'x' : ''}</Text>
+          <Text style={s.headerSub}>{mappedBoutiques.length} espace{mappedBoutiques.length > 1 ? 's' : ''} commercial{mappedBoutiques.length > 1 ? 'x' : ''}</Text>
         </View>
         <TouchableOpacity style={s.addBtn} onPress={() => navigation.navigate('CreateBoutique')}>
           <Text style={s.addBtnText}>+ Nouvelle</Text>
@@ -87,8 +101,17 @@ const BoutiqueManagementScreen: React.FC = () => {
         {/* ── Boutiques ───────────────────────────────────────────── */}
         <Text style={s.sectionTitle}>Vos boutiques</Text>
 
-        {BOUTIQUES.map(b => (
-          <View key={b.id} style={s.boutiqueCard}>
+        {loading ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ color: C.textMid }}>Chargement...</Text>
+          </View>
+        ) : mappedBoutiques.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ color: C.textMid }}>Aucune boutique créée</Text>
+          </View>
+        ) : (
+          mappedBoutiques.map((b: Boutique) => (
+            <View key={b.id} style={s.boutiqueCard}>
             {/* Top strip */}
             <View style={[s.cardStrip, { backgroundColor: b.couleur }]} />
 
@@ -140,7 +163,8 @@ const BoutiqueManagementScreen: React.FC = () => {
               </View>
             </View>
           </View>
-        ))}
+          ))
+        )}
 
         {/* ── Create first boutique CTA (if empty) ─────────────────── */}
         <View style={s.card}>

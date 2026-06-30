@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
@@ -7,6 +7,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { useAuth } from '../contexts/AuthContext';
+import { AdminPreferencesService } from '../services/adminPreferencesService';
+import { Currency, CurrencyService } from '../services/currencyService';
 
 const C = {
   navy: '#FF6B35', navyMid: '#FF8A5C',
@@ -38,13 +41,33 @@ const RECEIVABLES: Receivable[] = [];
 
 const ReceivablesScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'partial' | 'overdue'>('all');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [currency, setCurrency] = useState<Currency>('XAF');
 
   const filteredReceivables = filter === 'all'
     ? RECEIVABLES
     : RECEIVABLES.filter(rec => rec.status === filter);
+
+  useEffect(() => {
+    loadCurrency();
+  }, [user]);
+
+  const loadCurrency = async () => {
+    if (!user) return;
+    try {
+      const prefs = await AdminPreferencesService.getPreferences(user.uid);
+      setCurrency(prefs.currency);
+    } catch (error) {
+      console.error('Error loading currency:', error);
+    }
+  };
+
+  const formatAmount = (amount: number) => {
+    return CurrencyService.format(amount, currency);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -124,15 +147,15 @@ const ReceivablesScreen: React.FC = () => {
       {/* Stats */}
       <View style={s.statsRow}>
         <View style={s.statCard}>
-          <Text style={s.statValue}>€ 0.00</Text>
+          <Text style={s.statValue}>{formatAmount(0)}</Text>
           <Text style={s.statLabel}>Total créances</Text>
         </View>
         <View style={s.statCard}>
-          <Text style={[s.statValue, { color: C.success }]}>€ 0.00</Text>
+          <Text style={[s.statValue, { color: C.success }]}>{formatAmount(0)}</Text>
           <Text style={s.statLabel}>Encaissé</Text>
         </View>
         <View style={s.statCard}>
-          <Text style={[s.statValue, { color: C.warning }]}>€ 0.00</Text>
+          <Text style={[s.statValue, { color: C.warning }]}>{formatAmount(0)}</Text>
           <Text style={s.statLabel}>À encaisser</Text>
         </View>
       </View>

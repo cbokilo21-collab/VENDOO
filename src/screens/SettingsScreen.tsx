@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch, Dimensions, Alert, KeyboardAvoidingView, Platform, Animated, Easing, Image } from 'react-native';
-import { signOut } from 'firebase/auth';
+import { signOut, updateProfile } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { FirestoreService } from '../services/firestoreService';
 import BottomNavigation from '../components/BottomNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import LanguageSelector from '../components/LanguageSelector';
@@ -108,6 +109,7 @@ const SettingsScreen: React.FC = () => {
   const [boutiqueDescription, setBoutiqueDescription] = useState(boutiqueData.description);
   const [boutiqueLogo, setBoutiqueLogo] = useState(boutiqueData.logo);
   const [profilePhoto, setProfilePhoto] = useState(user?.photoURL || '');
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
   const [website, setWebsite] = useState(boutiqueData.website);
   const [instagram, setInstagram] = useState(boutiqueData.instagram);
   const [facebook, setFacebook] = useState(boutiqueData.facebook);
@@ -161,7 +163,11 @@ const SettingsScreen: React.FC = () => {
     setTimezone(boutiqueData.timezone);
   }, [boutiqueData]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    console.log('handleSave called');
+    console.log('displayName:', displayName);
+    console.log('user.displayName:', user?.displayName);
+    
     setBoutiqueData({
       nom: boutiqueName,
       description: boutiqueDescription,
@@ -174,7 +180,29 @@ const SettingsScreen: React.FC = () => {
       currency: currency,
       timezone: timezone,
     });
-    Alert.alert(t('common.success'), t('settings.saved'));
+
+    // Save display name to Firestore and Firebase Auth
+    if (user && displayName !== user.displayName) {
+      try {
+        console.log('Updating display name in Firestore...');
+        // Update Firestore users collection using set with merge to create if not exists
+        await FirestoreService.set('users', user.uid, { displayName }, true);
+        console.log('Firestore update successful');
+        
+        console.log('Updating Firebase Auth displayName...');
+        // Update Firebase Auth displayName
+        await updateProfile(user, { displayName });
+        console.log('Firebase Auth update successful');
+        
+        Alert.alert(t('common.success'), 'Nom mis à jour avec succès');
+      } catch (error) {
+        console.error('Error updating display name:', error);
+        Alert.alert(t('common.error'), 'Erreur lors de la mise à jour du nom: ' + (error as any).message);
+      }
+    } else {
+      console.log('No display name change needed');
+      Alert.alert(t('common.success'), t('settings.saved'));
+    }
   };
   const handleLogout = async () => { try { await signOut(auth); } catch {} };
   const goTo = (screen: string) => { if (screen !== 'Settings') navigation.navigate(screen as any); };
@@ -226,10 +254,16 @@ const SettingsScreen: React.FC = () => {
               </Svg>
             </View>
           </TouchableOpacity>
-          <View>
-            <Text style={s.profileName}>{user?.displayName || user?.email?.split('@')[0] || t('webshell.user')}</Text>
-            <View style={s.planBadge}><Text style={s.planText}>{userType === 'buyer' ? t('settings.visitor') : t('settings.adminPro')}</Text></View>
+          <View style={s.profileInfo}>
+            <View style={s.nameRow}>
+              <Text style={s.profileName}>{displayName || user?.displayName || user?.email?.split('@')[0] || t('webshell.user')}</Text>
+              <View style={s.planBadge}><Text style={s.planText}>{userType === 'buyer' ? t('settings.visitor') : t('settings.adminPro')}</Text></View>
+            </View>
           </View>
+        </View>
+        <View style={s.fieldGroup}>
+          <Text style={s.fieldLabel}>Nom d'affichage</Text>
+          {inp('displayName', displayName, setDisplayName, 'Entrez votre nom')}
         </View>
       </AnimatedCard>
 
@@ -462,11 +496,14 @@ const s = StyleSheet.create({
   profileAvatarImage: { width: 52, height: 52, borderRadius: 26 },
   profileAvatarText:{ fontSize: 22, fontWeight: '800', color: C.white },
   profileEditIcon:  { position: 'absolute', bottom: 0, right: 0, backgroundColor: C.textDark, borderRadius: 10, width: 18, height: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.surface },
+  profileInfo:      { flex: 1 },
+  nameRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
   profileName:      { fontSize: 16, fontWeight: '700', color: C.textDark, marginBottom: 5 },
   planBadge:        { backgroundColor: C.accent + '18', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start' },
   planText:         { fontSize: 12, fontWeight: '700', color: C.accent },
 
   fieldGroup: { marginBottom: 14 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textMid, marginBottom: 7 },
   label:      { fontSize: 13, fontWeight: '600', color: C.textMid, marginBottom: 7 },
   input:        { height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 9, paddingHorizontal: 12, fontSize: 16, color: C.textDark, backgroundColor: C.bg },
   inputFocused: { borderColor: C.borderFocus, backgroundColor: C.white },

@@ -26,7 +26,7 @@ export const RecommendationService = {
    */
   async getRecommendations(buyerId: string): Promise<Recommendation[]> {
     try {
-      // Obtenir le profil du visiteur
+      // Obtenir le profil du client
       const profile = await BuyerProfileService.getProfile(buyerId);
       if (!profile) {
         return [];
@@ -120,7 +120,7 @@ export const RecommendationService = {
   },
 
   /**
-   * Obtenir les boutiques dans les marchés favoris du visiteur
+   * Obtenir les boutiques dans les marchés favoris du client
    */
   async getStoresInFavoriteMarkets(buyerId: string): Promise<Store[]> {
     try {

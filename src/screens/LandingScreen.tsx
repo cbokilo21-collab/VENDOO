@@ -598,7 +598,19 @@ export default function LandingScreen() {
       await signInWithEmailAndPassword(auth, email, password);
       setShowAuthModal(false);
     } catch (err: any) {
-      setError(err.message || t('landing.error'));
+      let errorMessage = t('landing.error');
+      if (err?.code === 'auth/invalid-credential') {
+        errorMessage = 'Email ou mot de passe incorrect';
+      } else if (err?.code === 'auth/user-not-found') {
+        errorMessage = 'Aucun compte trouvé avec cet email';
+      } else if (err?.code === 'auth/wrong-password') {
+        errorMessage = 'Mot de passe incorrect';
+      } else if (err?.code === 'auth/invalid-email') {
+        errorMessage = 'Adresse email invalide';
+      } else if (err?.code === 'auth/too-many-requests') {
+        errorMessage = 'Trop de tentatives. Réessayez plus tard.';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -1048,7 +1060,7 @@ export default function LandingScreen() {
                       >
                         <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3236/3236336.png' }} style={styles.typeBtnIcon} />
                         <Text style={[styles.typeBtnText, userType === 'personal' && styles.typeBtnTextActive]}>
-                          Visiteur
+                          Client
                         </Text>
                       </TouchableOpacity>
                     </View>

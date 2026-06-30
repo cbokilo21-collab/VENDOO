@@ -105,17 +105,6 @@ const BoutiqueAppearanceScreen: React.FC = () => {
   const [enseigne, setEnseigne] = useState('Néon');
   const [focused, setFocused] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Boutique stats (mock data)
-  const boutiqueStats = {
-    level: 1,
-    products: 0,
-    sales: 0,
-    rating: 0,
-    reviews: 0,
-    visitors: 0,
-    joined: 'N/A',
-  };
 
   const inp = (field: string, val: string, setter: (v: string) => void, placeholder: string, label: string) => (
     <View style={s.fieldGroup}>
@@ -225,34 +214,8 @@ const BoutiqueAppearanceScreen: React.FC = () => {
         <View style={s.card}>
           <Text style={s.cardTitle}>Statistiques de la boutique</Text>
           <Text style={s.cardSub}>Performance et métriques</Text>
-          <View style={s.statsGrid}>
-            <View style={s.statItem}>
-              <Text style={s.statValue}>{boutiqueStats.level}</Text>
-              <Text style={s.statLabel}>Niveau</Text>
-            </View>
-            <View style={s.statItem}>
-              <Text style={s.statValue}>{boutiqueStats.products}</Text>
-              <Text style={s.statLabel}>Produits</Text>
-            </View>
-            <View style={s.statItem}>
-              <Text style={s.statValue}>{boutiqueStats.sales}</Text>
-              <Text style={s.statLabel}>Ventes</Text>
-            </View>
-            <View style={s.statItem}>
-              <Text style={[s.statValue, { color: C.accent }]}>{boutiqueStats.rating}</Text>
-              <Text style={s.statLabel}>Note</Text>
-            </View>
-            <View style={s.statItem}>
-              <Text style={s.statValue}>{boutiqueStats.reviews}</Text>
-              <Text style={s.statLabel}>Avis</Text>
-            </View>
-            <View style={s.statItem}>
-              <Text style={s.statValue}>{boutiqueStats.visitors}</Text>
-              <Text style={s.statLabel}>Visiteurs</Text>
-            </View>
-          </View>
-          <View style={s.joinedInfo}>
-            <Text style={s.joinedLabel}>Membre depuis le {boutiqueStats.joined}</Text>
+          <View style={s.emptyStats}>
+            <Text style={s.emptyStatsText}>Les statistiques seront disponibles après l'ajout de produits et de ventes</Text>
           </View>
         </View>
 
@@ -444,6 +407,8 @@ const s = StyleSheet.create({
   statLabel: { fontSize: 11, color: C.textMid, marginTop: 4 },
   joinedInfo: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border },
   joinedLabel: { fontSize: 12, color: C.textLight, textAlign: 'center' },
+  emptyStats: { padding: 40, alignItems: 'center' },
+  emptyStatsText: { fontSize: 13, color: C.textLight, textAlign: 'center' },
 
   // Hours
   hoursContainer: { gap: 8 },

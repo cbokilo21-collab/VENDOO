@@ -86,9 +86,9 @@ const InvoiceScreen: React.FC = () => {
   const navigation = useNavigation<InvoiceNavProp>();
   const { boutiqueData } = useBoutique();
 
-  // Mock invoice data (in real app, this would come from route params or database)
+  // Invoice data from route params
   const invoiceData: InvoiceData = {
-    id: route.params?.saleId || 'INV-2024-001',
+    id: route.params?.saleId || 'INV-000',
     date: new Date().toLocaleDateString('fr-FR', {
       weekday: 'long',
       year: 'numeric',
@@ -97,21 +97,17 @@ const InvoiceScreen: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit',
     }),
-    items: route.params?.saleData?.items || [
-      { nom: 'Produit A', prix: 5000, qty: 2, total: 10000 },
-      { nom: 'Produit B', prix: 3500, qty: 1, total: 3500 },
-      { nom: 'Produit C', prix: 8000, qty: 1, total: 8000 },
-    ],
-    subtotal: route.params?.saleData?.subtotal || 21500,
+    items: route.params?.saleData?.items || [],
+    subtotal: route.params?.saleData?.subtotal || 0,
     discount: route.params?.saleData?.discount || 0,
-    total: route.params?.saleData?.total || 21500,
+    total: route.params?.saleData?.total || 0,
     method: route.params?.saleData?.method || 'Espèces',
     boutique: {
-      nom: boutiqueData?.nom || 'Ma Boutique',
+      nom: boutiqueData?.nom || 'Boutique',
       logo: boutiqueData?.logo,
-      adresse: `${boutiqueData?.ville || 'Dakar'}, ${boutiqueData?.pays || 'Sénégal'}`,
-      telephone: boutiqueData?.phone || '+221 77 123 45 67',
-      email: boutiqueData?.email || 'contact@boutique.com',
+      adresse: `${boutiqueData?.ville || ''}, ${boutiqueData?.pays || ''}`,
+      telephone: boutiqueData?.phone || '',
+      email: boutiqueData?.email || '',
     },
   };
 

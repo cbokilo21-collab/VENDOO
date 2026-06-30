@@ -1,6 +1,6 @@
 import { FirestoreService } from './firestoreService';
 
-export type UserType = 'buyer' | 'business';
+export type UserType = 'buyer' | 'business' | 'admin';
 
 export interface UserProfile {
   id?: string;

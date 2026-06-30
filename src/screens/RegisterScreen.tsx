@@ -7,6 +7,7 @@ import {
 import { createUserWithEmailAndPassword, sendEmailVerification, reload } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { CustomerService } from '../services/customerService';
+import { UserService } from '../services/userService';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Line, Rect, Polyline } from 'react-native-svg';
@@ -21,7 +22,7 @@ const C = {
 };
 
 type UserType = 'personal' | 'business';
-type RootStackParamList = { Login: undefined; Register: undefined; CreateBoutique: undefined; BusinessDashboard: undefined };
+type RootStackParamList = { Login: undefined; Register: undefined; CreateBoutique: undefined; BusinessDashboard: undefined; BuyerTutorial: undefined };
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 // ─── Eye icon ──────────────────────────────────────────────────────────────────
@@ -202,6 +203,19 @@ const RegisterScreen: React.FC = () => {
       if (auth.currentUser) {
         await reload(auth.currentUser);
         if (auth.currentUser.emailVerified) {
+          // Create user profile in Firestore
+          if (auth.currentUser.uid && email) {
+            try {
+              await UserService.setProfile(auth.currentUser.uid, {
+                name: name || 'Unnamed',
+                email,
+                userType: userType === 'business' ? 'business' : 'buyer',
+              });
+            } catch (err) {
+              console.error('Failed to create user profile:', err);
+            }
+          }
+
           // Create customer record on successful email verification
           if (auth.currentUser.uid && email) {
             try {
@@ -221,7 +235,7 @@ const RegisterScreen: React.FC = () => {
           if (userType === 'business') {
             navigation.navigate('CreateBoutique');
           } else {
-            navigation.navigate('BusinessDashboard');
+            navigation.navigate('BuyerTutorial');
           }
         } else {
           Alert.alert('Email non vérifié', 'Cliquez d\'abord sur le lien dans votre email, puis réessayez.');
@@ -297,7 +311,7 @@ const RegisterScreen: React.FC = () => {
               <TouchableOpacity key={t} style={[s.typeBtn, userType === t && s.typeBtnA]}
                 onPress={() => setUserType(t)} activeOpacity={0.8}>
                 <Text style={[s.typeBtnTxt, userType === t && s.typeBtnTxtA]}>
-                  {t === 'business' ? '🏪 Marchand' : '👤 Visiteur'}
+                  {t === 'business' ? '🏪 Marchand' : '👤 Client'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -308,7 +322,7 @@ const RegisterScreen: React.FC = () => {
             <Text style={[s.contextTxt, { color: userType === 'business' ? '#92400E' : '#1D4ED8' }]}>
               {userType === 'business'
                 ? '✦ En tant que marchand, vous aurez votre boutique dans le quartier.'
-                : '✦ En tant que visiteur, vous explorez les boutiques et passez commande.'}
+                : '✦ En tant que client, vous explorez les boutiques et passez commande.'}
             </Text>
           </View>
 

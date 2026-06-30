@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScreenHeader } from '../components/ScreenHeader';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
@@ -7,6 +7,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { useAuth } from '../contexts/AuthContext';
+import { AdminPreferencesService } from '../services/adminPreferencesService';
+import { Currency, CurrencyService } from '../services/currencyService';
 
 const C = {
   navy: '#FF6B35', navyMid: '#FF8A5C',
@@ -32,18 +35,39 @@ interface Invoice {
   date: string;
   dueDate: string;
   items: { name: string; qty: number; price: number }[];
+  paymentMethod?: 'visa' | 'mobile_money' | 'cash';
 }
 
 const INVOICES: Invoice[] = [];
 
 const BillingScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+  const [currency, setCurrency] = useState<Currency>('XAF');
 
   const filteredInvoices = filter === 'all'
     ? INVOICES
     : INVOICES.filter(inv => inv.status === filter);
+
+  useEffect(() => {
+    loadCurrency();
+  }, [user]);
+
+  const loadCurrency = async () => {
+    if (!user) return;
+    try {
+      const prefs = await AdminPreferencesService.getPreferences(user.uid);
+      setCurrency(prefs.currency);
+    } catch (error) {
+      console.error('Error loading currency:', error);
+    }
+  };
+
+  const formatAmount = (amount: number) => {
+    return CurrencyService.format(amount, currency);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -60,6 +84,24 @@ const BillingScreen: React.FC = () => {
       case 'pending': return 'En attente';
       case 'overdue': return 'En retard';
       default: return status;
+    }
+  };
+
+  const getPaymentMethodLabel = (method?: string) => {
+    switch (method) {
+      case 'visa': return 'Visa';
+      case 'mobile_money': return 'Mobile Money';
+      case 'cash': return 'Espèces';
+      default: return method || '-';
+    }
+  };
+
+  const getPaymentMethodColor = (method?: string) => {
+    switch (method) {
+      case 'visa': return C.info;
+      case 'mobile_money': return C.success;
+      case 'cash': return C.warning;
+      default: return C.muted;
     }
   };
 
@@ -109,15 +151,15 @@ const BillingScreen: React.FC = () => {
       {/* Stats */}
       <View style={s.statsRow}>
         <View style={s.statCard}>
-          <Text style={s.statValue}>€ 0.00</Text>
+          <Text style={s.statValue}>{formatAmount(0)}</Text>
           <Text style={s.statLabel}>Total facturé</Text>
         </View>
         <View style={s.statCard}>
-          <Text style={[s.statValue, { color: C.warning }]}>€ 0.00</Text>
+          <Text style={[s.statValue, { color: C.warning }]}>{formatAmount(0)}</Text>
           <Text style={s.statLabel}>En attente</Text>
         </View>
         <View style={s.statCard}>
-          <Text style={[s.statValue, { color: C.error }]}>€ 0.00</Text>
+          <Text style={[s.statValue, { color: C.error }]}>{formatAmount(0)}</Text>
           <Text style={s.statLabel}>En retard</Text>
         </View>
       </View>
@@ -176,6 +218,16 @@ const BillingScreen: React.FC = () => {
                   {invoice.dueDate}
                 </Text>
               </View>
+              {invoice.paymentMethod && (
+                <View style={s.detailRow}>
+                  <Text style={s.detailLabel}>Méthode</Text>
+                  <View style={[s.paymentMethodBadge, { backgroundColor: getPaymentMethodColor(invoice.paymentMethod) + '15' }]}>
+                    <Text style={[s.paymentMethodText, { color: getPaymentMethodColor(invoice.paymentMethod) }]}>
+                      {getPaymentMethodLabel(invoice.paymentMethod)}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         ))}
@@ -280,6 +332,8 @@ const s = StyleSheet.create({
   detailLabel: { fontSize: 12, color: C.textLight },
   detailValue: { fontSize: 13, fontWeight: '600', color: C.textDark },
   overdueText: { color: C.error },
+  paymentMethodBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  paymentMethodText: { fontSize: 11, fontWeight: '700' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBackdrop: { flex: 1 },

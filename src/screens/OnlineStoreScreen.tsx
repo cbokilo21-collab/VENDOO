@@ -25,10 +25,6 @@ interface Theme {
   description: string;
   preview: string;
   colors: { primary: string; secondary: string; accent: string };
-  mockData: {
-    hero: { title: string; subtitle: string; description: string; buttonText: string };
-    products: Array<{ name: string; price: string; category: string }>;
-  };
 }
 
 const SECTIONS: Section[] = [
@@ -47,15 +43,6 @@ const THEMES: Theme[] = [
     description: 'Design vibrant et dynamique pour boutiques de mode',
     preview: '#FF6B35', 
     colors: { primary: '#FF6B35', secondary: '#FFF7F3', accent: '#8B5CF6' },
-    mockData: {
-      hero: { title: 'Style Moderne', subtitle: 'La mode de demain', description: 'Découvrez notre collection exclusive de vêtements et accessoires tendance.', buttonText: 'Explorer' },
-      products: [
-        { name: 'Veste Oversize', price: '45 000 F', category: 'Vêtements' },
-        { name: 'Sneakers Urban', price: '35 000 F', category: 'Chaussures' },
-        { name: 'Sac à Dos Tech', price: '25 000 F', category: 'Accessoires' },
-        { name: 'Casquette Street', price: '12 000 F', category: 'Accessoires' },
-      ]
-    }
   },
   { 
     id: 'minimal', 
@@ -63,15 +50,6 @@ const THEMES: Theme[] = [
     description: 'Épure et élégant pour boutiques de luxe',
     preview: '#111827', 
     colors: { primary: '#111827', secondary: '#FFFFFF', accent: '#10B981' },
-    mockData: {
-      hero: { title: 'Pureté', subtitle: 'L\'essentiel', description: 'Des pièces essentielles pour un style intemporel et raffiné.', buttonText: 'Découvrir' },
-      products: [
-        { name: 'Chemise Lin', price: '28 000 F', category: 'Vêtements' },
-        { name: 'Pantalon Slim', price: '32 000 F', category: 'Vêtements' },
-        { name: 'Cuir Premium', price: '65 000 F', category: 'Maroquinerie' },
-        { name: 'Montre Classique', price: '85 000 F', category: 'Accessoires' },
-      ]
-    }
   },
   { 
     id: 'elegant', 
@@ -79,15 +57,6 @@ const THEMES: Theme[] = [
     description: 'Sophistiqué pour boutiques de bijoux et cosmétiques',
     preview: '#8B5CF6', 
     colors: { primary: '#8B5CF6', secondary: '#F5F3FF', accent: '#FF6B35' },
-    mockData: {
-      hero: { title: 'Élégance', subtitle: 'Brillez', description: 'Une sélection de bijoux et cosmétiques pour sublimer votre quotidien.', buttonText: 'Voir la collection' },
-      products: [
-        { name: 'Collier Or', price: '55 000 F', category: 'Bijoux' },
-        { name: 'Sérum Luxe', price: '42 000 F', category: 'Cosmétiques' },
-        { name: 'Boucles Perles', price: '18 000 F', category: 'Bijoux' },
-        { name: 'Crème Nuit', price: '38 000 F', category: 'Cosmétiques' },
-      ]
-    }
   },
   { 
     id: 'bold', 
@@ -95,15 +64,6 @@ const THEMES: Theme[] = [
     description: 'Coloré et énergique pour boutiques de sport',
     preview: '#10B981', 
     colors: { primary: '#10B981', secondary: '#ECFDF5', accent: '#F59E0B' },
-    mockData: {
-      hero: { title: 'Performance', subtitle: 'Dépassez vos limites', description: 'Équipements sportifs pour les athlètes exigeants.', buttonText: 'Commencer' },
-      products: [
-        { name: 'Legging Pro', price: '22 000 F', category: 'Sport' },
-        { name: 'T-shirt Tech', price: '15 000 F', category: 'Sport' },
-        { name: 'Chaussures Run', price: '48 000 F', category: 'Chaussures' },
-        { name: 'Gym Band', price: '8 000 F', category: 'Accessoires' },
-      ]
-    }
   },
 ];
 
@@ -182,20 +142,20 @@ const OnlineStoreScreen: React.FC = () => {
     setSelectedTheme(theme);
     setCustomColors(theme.colors);
     setCustomHero({
-      title: theme.mockData.hero.title,
-      subtitle: theme.mockData.hero.subtitle,
-      description: theme.mockData.hero.description,
-      buttonText: theme.mockData.hero.buttonText,
+      title: 'Bienvenue sur notre boutique',
+      subtitle: 'Découvrez nos produits exclusifs',
+      description: 'Une sélection unique de produits de qualité',
+      buttonText: 'Voir la collection',
     });
     setThemeProducts([]); // Commence avec une liste vide
     setSectionContent(prev => ({
       ...prev,
       '2': {
         id: '2',
-        title: theme.mockData.hero.title,
-        subtitle: theme.mockData.hero.subtitle,
-        description: theme.mockData.hero.description,
-        buttonText: theme.mockData.hero.buttonText,
+        title: 'Bienvenue sur notre boutique',
+        subtitle: 'Découvrez nos produits exclusifs',
+        description: 'Une sélection unique de produits de qualité',
+        buttonText: 'Voir la collection',
         youtubeUrl: '',
         imageUrl: '',
       }
@@ -658,25 +618,29 @@ const OnlineStoreScreen: React.FC = () => {
                 </View>
                 
                 <View style={[s.previewHero, { backgroundColor: previewingTheme.colors.primary + '20' }]}>
-                  <Text style={s.previewHeroTitle}>{previewingTheme.mockData.hero.title}</Text>
-                  <Text style={s.previewHeroSub}>{previewingTheme.mockData.hero.subtitle}</Text>
-                  <Text style={s.previewHeroDesc}>{previewingTheme.mockData.hero.description}</Text>
+                  <Text style={s.previewHeroTitle}>{customHero.title}</Text>
+                  <Text style={s.previewHeroSub}>{customHero.subtitle}</Text>
+                  <Text style={s.previewHeroDesc}>{customHero.description}</Text>
                   <View style={[s.previewHeroBtn, { backgroundColor: previewingTheme.colors.primary }]}>
-                    <Text style={s.previewHeroBtnText}>{previewingTheme.mockData.hero.buttonText}</Text>
+                    <Text style={s.previewHeroBtnText}>{customHero.buttonText}</Text>
                   </View>
                 </View>
                 
                 <View style={s.previewSection}>
                   <Text style={s.previewSectionTitle}>Nos produits</Text>
                   <View style={s.previewGrid}>
-                    {previewingTheme.mockData.products.map((product, i) => (
+                    {themeProducts.length > 0 ? themeProducts.map((product: any, i: number) => (
                       <View key={i} style={s.previewCardItem}>
                         <View style={[s.previewCardImage, { backgroundColor: previewingTheme.colors.primary + '30' }]} />
                         <Text style={s.previewCardTitle}>{product.name}</Text>
                         <Text style={s.previewCardPrice}>{product.price}</Text>
                         <Text style={s.previewCardCategory}>{product.category}</Text>
                       </View>
-                    ))}
+                    )) : (
+                      <View style={s.emptyPreview}>
+                        <Text style={s.emptyPreviewText}>Ajoutez des produits pour voir l'aperçu</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
                 
@@ -809,6 +773,8 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 12,
   },
   addProductBtnText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  emptyPreview: { padding: 40, alignItems: 'center' },
+  emptyPreviewText: { fontSize: 14, color: C.textLight, textAlign: 'center' },
   
   // Color Picker
   colorPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

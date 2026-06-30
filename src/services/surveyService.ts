@@ -16,7 +16,7 @@ export interface SurveyResponse {
 
 export interface SellerSurvey {
   id?: string;
-  userId: string; // ID du visiteur
+  userId: string; // ID du client
   storeId: string; // ID de la boutique évaluée
   storeName: string;
   surveyType: 'quality' | 'service' | 'pricing' | 'overall';

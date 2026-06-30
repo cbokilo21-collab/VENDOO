@@ -178,7 +178,6 @@ const OrdersScreen: React.FC = () => {
           const meta = ORDER_STATUS_META[o.status];
           const initials = o.client.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
           const isLast = i === filtered.length - 1;
-          // Use orderNumber if id is missing (backward compat with demo data)
           const oId = (o as any).id || o.orderNumber || '#0';
           const oTotal = (o as any).total || (o as any).montant || 0;
           const formattedDate = (o as any).date || ((o as any).createdAt ? new Date((o as any).createdAt).toLocaleDateString('fr-FR') : '—');

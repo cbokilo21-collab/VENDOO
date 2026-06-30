@@ -30,13 +30,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentUser);
 
       if (currentUser) {
-        // Load the persisted user type so we show the right interface.
-        // Default to 'business' for legacy accounts that have no profile yet.
-        try {
-          const type = await UserService.getType(currentUser.uid);
-          if (mounted) setUserType(type ?? 'business');
-        } catch {
-          if (mounted) setUserType('business');
+        // Check if super admin - this overrides any existing profile
+        if (currentUser.email === 'cbokilo18@gmail.com') {
+          if (mounted) setUserType('admin');
+          // Update Firestore profile to admin for consistency
+          try {
+            await UserService.setProfile(currentUser.uid, {
+              name: 'Cyril Bokilo',
+              email: currentUser.email,
+              userType: 'admin',
+            });
+          } catch (e) {
+            console.error('Failed to update admin profile:', e);
+          }
+        } else {
+          // Load the persisted user type so we show the right interface.
+          // Default to 'business' for legacy accounts that have no profile yet.
+          try {
+            const type = await UserService.getType(currentUser.uid);
+            if (mounted) setUserType(type ?? 'business');
+          } catch {
+            if (mounted) setUserType('business');
+          }
         }
       } else {
         setUserType(null);

@@ -19,6 +19,8 @@ import { useDashboardKPIs } from '../hooks/useRealtimeData';
 import { useLanguage } from '../contexts/LanguageContext';
 import { NotificationService } from '../services/notificationService';
 import { OrderService } from '../services/orderService';
+import VerifiedBadge from '../components/VerifiedBadge';
+import UserAvatar from '../components/UserAvatar';
 
 const fmtF = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} M F` :
@@ -222,9 +224,21 @@ const BusinessDashboard: React.FC = () => {
       <View style={d.pageHead}>
         <View style={{ flex: 1 }}>
           <View style={d.headerBadgeContainer}>
-            <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
-            <View style={d.proBadge}>
-              <Text style={d.proBadgeText}>PRO</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Settings' as any)} activeOpacity={0.7}>
+              <View style={d.headerAvatarContainer}>
+                <UserAvatar 
+                  name={ownerName} 
+                  gender="male" 
+                  size={48} 
+                  showVerified={false} 
+                />
+              </View>
+            </TouchableOpacity>
+            <View style={d.headerTextContainer}>
+              <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
+              <View style={d.proBadge}>
+                <Text style={d.proBadgeText}>PRO</Text>
+              </View>
             </View>
           </View>
           <Text style={d.pageTitle}>{t('nav.home')}</Text>
@@ -466,8 +480,11 @@ const d = StyleSheet.create({
 
   // Page header
   pageHead:    { flexDirection:'row', alignItems:'flex-start', justifyContent:'space-between', gap:12, zIndex:20 },
-  headerBadgeContainer: { flexDirection:'row', alignItems:'center', gap:8 },
-  greet:       { fontSize:13, color:T.textSub, fontWeight:'600', marginBottom:3 },
+  headerBadgeContainer: { flexDirection:'row', alignItems:'center', gap:12 },
+  headerAvatarContainer: { marginRight: 4 },
+  headerTextContainer: { flexDirection:'column', gap:4 },
+  nameRow: { flexDirection:'row', alignItems:'center', gap:8 },
+  greet:       { fontSize:13, color:T.textSub, fontWeight:'600' },
   proBadge:    { backgroundColor:T.orange, paddingHorizontal:8, paddingVertical:2, borderRadius:4 },
   proBadgeText:{ color:'#fff', fontSize:10, fontWeight:'bold' },
   pageTitle:   { fontSize:26, fontWeight:'800', color:T.text, letterSpacing:-0.6 },

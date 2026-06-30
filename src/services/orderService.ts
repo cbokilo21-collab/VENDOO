@@ -35,7 +35,7 @@ export interface Order {
   discount?: number;
   total: number;
   status: OrderStatus;
-  paymentMethod: 'card' | 'cash' | 'mobile';
+  paymentMethod: 'visa' | 'mobile_money' | 'cash';
   trackingNumber?: string;
   carrier?: string;
   estimatedDeliveryDate?: any; // Date de livraison estimée (accordée avec le vendeur)

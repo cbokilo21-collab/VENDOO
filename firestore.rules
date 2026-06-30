@@ -12,10 +12,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    // Users collection
+    // Helper function to check if user is super admin
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'cbokilo18@gmail.com';
+    }
+    
+    // Users collection - admin can read all, users can read their own
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+      allow read: if isAdmin() || isOwner(userId);
+      allow write: if isAdmin() || isOwner(userId);
+    }
+    
+    // Notifications collection - admin can create all, users can read their own
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || resource.data.userId == request.auth.uid;
+      allow create: if isAdmin() || request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || resource.data.userId == request.auth.uid;
     }
     
     // Products collection - users can read/write their own products
@@ -43,6 +55,20 @@ service cloud.firestore {
     match /boutiques/{boutiqueId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow write: if isSignedIn() && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+    }
+    
+    // Conversations collection - users can read/write conversations they participate in
+    match /conversations/{conversationId} {
+      allow read: if isSignedIn() && (resource.data.buyerId == request.auth.uid || resource.data.storeId == request.auth.uid);
+      allow create: if isSignedIn() && (request.resource.data.buyerId == request.auth.uid || request.resource.data.storeId == request.auth.uid);
+      allow update: if isSignedIn() && (resource.data.buyerId == request.auth.uid || resource.data.storeId == request.auth.uid);
+    }
+    
+    // Messages collection - users can read/write messages in conversations they participate in
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
     }
   }
 }

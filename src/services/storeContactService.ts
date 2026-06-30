@@ -3,7 +3,7 @@ import { where } from 'firebase/firestore';
 
 export interface StoreContact {
   id?: string;
-  userId: string; // ID du visiteur
+  userId: string; // ID du client
   storeId: string; // ID de la boutique
   storeName: string;
   storeCategory: string;

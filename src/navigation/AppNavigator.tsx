@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, Platform } from 'react-native';
@@ -30,10 +30,23 @@ import RegisterScreen       from '../screens/RegisterScreen';
 import CreateBoutiqueScreen from '../screens/CreateBoutiqueScreen';
 import BoutiqueKeysScreen   from '../screens/BoutiqueKeysScreen';
 import BoutiqueTutorialScreen from '../screens/BoutiqueTutorialScreen';
+import BuyerTutorialScreen from '../screens/BuyerTutorialScreen';
+
+// Admin screens
+import UsersManagementScreen from '../screens/UsersManagementScreen';
+import SalesAnalyticsScreen from '../screens/SalesAnalyticsScreen';
+import SubscriptionRevenueScreen from '../screens/SubscriptionRevenueScreen';
+import BroadcastMessagingScreen from '../screens/BroadcastMessagingScreen';
+import PromotionMarketScreen from '../screens/PromotionMarketScreen';
+import AdminProfileScreen from '../screens/AdminProfileScreen';
+import AdminLinksScreen from '../screens/AdminLinksScreen';
+import AppDownloadsScreen from '../screens/AppDownloadsScreen';
+import AdminPaymentStatsScreen from '../screens/AdminPaymentStatsScreen';
 
 // Main app
 import BusinessDashboard    from '../screens/BusinessDashboard';
 import BuyerDashboard       from '../screens/BuyerDashboard';
+import AdminDashboard       from '../screens/AdminDashboard';
 import ProductsScreen       from '../screens/ProductsScreen';
 import OrdersScreen         from '../screens/OrdersScreen';
 import OrderDetailScreen    from '../screens/OrderDetailScreen';
@@ -43,6 +56,8 @@ import SettingsScreen       from '../screens/SettingsScreen';
 import MyOrdersScreen       from '../screens/MyOrdersScreen';
 import FavoritesScreen      from '../screens/FavoritesScreen';
 import MessagesScreen       from '../screens/MessagesScreen';
+import AdminMessagesScreen   from '../screens/AdminMessagesScreen';
+import ConversationScreen   from '../screens/ConversationScreen';
 import FavoriteDistrictsScreen from '../screens/FavoriteDistrictsScreen';
 import SpendingScreen       from '../screens/SpendingScreen';
 import VisitHistoryScreen   from '../screens/VisitHistoryScreen';
@@ -92,6 +107,43 @@ const Stack = createNativeStackNavigator();
 
 const AppNavigator: React.FC = () => {
   const { user, userType, loading } = useAuth();
+  
+  // Force admin for cbokilo18@gmail.com regardless of stored userType
+  const isAdmin = user?.email === 'cbokilo18@gmail.com';
+  const effectiveUserType = isAdmin ? 'admin' : userType;
+
+  // Navigation state persistence
+  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Restore saved route from localStorage
+      const savedRoute = localStorage.getItem('vendoo_current_route');
+      if (savedRoute) {
+        setInitialRoute(savedRoute);
+      }
+    }
+  }, []);
+
+  // Save current route on navigation
+  const navigationRef = useRef<any>(null);
+  const onNavigationStateChange = () => {
+    if (Platform.OS === 'web' && navigationRef.current) {
+      const currentRoute = navigationRef.current.getCurrentRoute();
+      if (currentRoute) {
+        localStorage.setItem('vendoo_current_route', currentRoute.name);
+      }
+    }
+  };
+
+  // Determine initial route based on auth state and saved route
+  const getInitialRoute = () => {
+    if (!user) return 'Landing';
+    if (initialRoute) return initialRoute;
+    if (effectiveUserType === 'admin') return 'AdminDashboard';
+    if (effectiveUserType === 'buyer') return 'BuyerDashboard';
+    return 'BusinessDashboard';
+  };
 
   if (loading) {
     return (
@@ -102,12 +154,34 @@ const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: isWeb ? 'none' : 'slide_from_right' }}>
+    <NavigationContainer
+      ref={navigationRef}
+      onStateChange={onNavigationStateChange}
+    >
+      <Stack.Navigator 
+        screenOptions={{ headerShown: false, animation: isWeb ? 'none' : 'slide_from_right' }}
+        initialRouteName={getInitialRoute()}
+      >
         {user ? (
           <>
             {/* ── Main dashboard (based on userType) ─────────────────────────────────────── */}
-            {userType === 'buyer' ? (
+            {effectiveUserType === 'admin' ? (
+              <>
+                <Stack.Screen name="AdminDashboard"       component={withWebShell(AdminDashboard,        'AdminDashboard')} />
+                <Stack.Screen name="UsersManagement"      component={withWebShell(UsersManagementScreen,   'UsersManagement')} />
+                <Stack.Screen name="SalesAnalytics"       component={withWebShell(SalesAnalyticsScreen,    'SalesAnalytics')} />
+                <Stack.Screen name="SubscriptionRevenue" component={withWebShell(SubscriptionRevenueScreen, 'SubscriptionRevenue')} />
+                <Stack.Screen name="BroadcastMessaging"  component={withWebShell(BroadcastMessagingScreen, 'BroadcastMessaging')} />
+                <Stack.Screen name="PromotionMarket"     component={withWebShell(PromotionMarketScreen,    'PromotionMarket')} />
+                <Stack.Screen name="AdminProfile"        component={withWebShell(AdminProfileScreen,       'AdminProfile')} />
+                <Stack.Screen name="AdminLinks"          component={withWebShell(AdminLinksScreen,         'AdminLinks')} />
+                <Stack.Screen name="AppDownloads"        component={withWebShell(AppDownloadsScreen,       'AppDownloads')} />
+                <Stack.Screen name="AdminPaymentStats"   component={withWebShell(AdminPaymentStatsScreen,  'AdminPaymentStats')} />
+                <Stack.Screen name="Messages"            component={withWebShell(AdminMessagesScreen,        'Messages')} />
+                <Stack.Screen name="Conversation"        component={withWebShell(ConversationScreen,       'Conversation')} />
+                <Stack.Screen name="Settings"            component={withWebShell(SettingsScreen,           'Settings')} />
+              </>
+            ) : userType === 'buyer' ? (
               <>
                 <Stack.Screen name="BuyerDashboard"       component={withWebShell(BuyerDashboard,        'BuyerDashboard')} />
                 <Stack.Screen name="Marketplace"           component={withWebShell(MarketplaceScreen,     'Marketplace')} />
@@ -117,6 +191,7 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="OrderTracking"        component={withWebShell(OrderTrackingScreen,  'OrderTracking')} />
                 <Stack.Screen name="Favorites"            component={withWebShell(FavoritesScreen,      'Favorites')} />
                 <Stack.Screen name="Messages"             component={withWebShell(MessagesScreen,       'Messages')} />
+                <Stack.Screen name="Conversation"         component={withWebShell(ConversationScreen,   'Conversation')} />
                 <Stack.Screen name="Notifications"       component={withWebShell(BuyerNotificationsScreen,  'Notifications')} />
                 <Stack.Screen name="StoreContacts"        component={withWebShell(StoreContactsScreen,  'StoreContacts')} />
                 <Stack.Screen name="SellerSurvey"         component={withWebShell(SellerSurveyScreen,   'SellerSurvey')} />
@@ -125,6 +200,9 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="VisitHistory"         component={withWebShell(VisitHistoryScreen,   'VisitHistory')} />
                 <Stack.Screen name="FavoriteDistricts"    component={withWebShell(FavoriteDistrictsScreen, 'FavoriteDistricts')} />
                 <Stack.Screen name="Settings"             component={withWebShell(SettingsScreen,       'Settings')} />
+
+                {/* ── Onboarding ─────────────────────────────────────────── */}
+                <Stack.Screen name="BuyerTutorial"        component={withWebShell(BuyerTutorialScreen,   'BuyerTutorial')} />
               </>
             ) : (
               <>
@@ -135,6 +213,8 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="Customers"          component={withWebShell(CustomersScreen,     'Customers')} />
                 <Stack.Screen name="CustomerDetail"     component={withWebShell(CustomerDetailScreen,'Customers')} />
                 <Stack.Screen name="Settings"           component={withWebShell(SettingsScreen,      'Settings')} />
+                <Stack.Screen name="Messages"           component={withWebShell(MessagesScreen,       'Messages')} />
+                <Stack.Screen name="Conversation"       component={withWebShell(ConversationScreen,   'Conversation')} />
 
                 {/* ── Boutique tools ─────────────────────────────────────── */}
                 <Stack.Screen name="POS"                component={withWebShell(POSScreen,               'POS')} />
@@ -189,6 +269,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="CreateBoutique"     component={CreateBoutiqueScreen} />
             <Stack.Screen name="BoutiqueKeys"       component={BoutiqueKeysScreen}   />
             <Stack.Screen name="BoutiqueTutorial"   component={BoutiqueTutorialScreen} />
+            <Stack.Screen name="BuyerTutorial"      component={BuyerTutorialScreen} />
 
             {/* ── Quartier ────────────────────────────────────────────── */}
             <Stack.Screen name="CountrySelection"   component={CountrySelectionScreen} />

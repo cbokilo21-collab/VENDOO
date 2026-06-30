@@ -3,7 +3,7 @@ import { where } from 'firebase/firestore';
 
 export interface Review {
   id?: string;
-  userId: string; // ID du visiteur
+  userId: string; // ID du client
   storeId: string; // ID de la boutique
   storeName: string;
   rating: number; // Note de 1 à 5

@@ -15,7 +15,7 @@ export interface SpendingStats {
 
 export const SpendingService = {
   /**
-   * Obtenir les statistiques de dépenses d'un visiteur
+   * Obtenir les statistiques de dépenses d'un client
    */
   async getSpendingStats(userId: string): Promise<SpendingStats> {
     try {

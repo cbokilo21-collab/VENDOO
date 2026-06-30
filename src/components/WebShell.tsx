@@ -25,6 +25,34 @@ const Ico = ({ d, color = T.muted, size = 18, sw = 1.9 }: { d: string; color?: s
 );
 
 // ── Nav groups ───────────────────────────────────────────────────────────────
+const ADMIN_GROUPS = [
+  {
+    label: 'sidebar.main',
+    items: [
+      { route: 'AdminDashboard', label: 'sidebar.adminDashboard', d: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
+      { route: 'UsersManagement', label: 'sidebar.usersManagement', d: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+      { route: 'SalesAnalytics', label: 'sidebar.salesAnalytics', d: 'M3 3v18h18M7 14l4-4 3 3 5-6' },
+      { route: 'SubscriptionRevenue', label: 'sidebar.subscriptionRevenue', d: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
+    ],
+  },
+  {
+    label: 'sidebar.adminTools',
+    items: [
+      { route: 'BroadcastMessaging', label: 'sidebar.broadcastMessaging', d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
+      { route: 'PromotionMarket', label: 'sidebar.promotionMarket', d: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z' },
+      { route: 'AdminLinks', label: 'sidebar.adminLinks', d: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71' },
+      { route: 'AppDownloads', label: 'sidebar.appDownloads', d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3' },
+    ],
+  },
+  {
+    label: 'sidebar.account',
+    items: [
+      { route: 'AdminProfile', label: 'sidebar.adminProfile', d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+      { route: 'Settings', label: 'sidebar.settings', d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' },
+    ],
+  },
+];
+
 const BUSINESS_GROUPS = [
   {
     label: 'sidebar.main',
@@ -125,15 +153,20 @@ const BUYER_GROUPS = [
 
 // Map route → display name
 const ROUTE_LABELS: Record<string, string> = {};
-[...BUSINESS_GROUPS, ...BUYER_GROUPS].forEach(g => g.items.forEach(i => { ROUTE_LABELS[i.route] = i.label; }));
+[...ADMIN_GROUPS, ...BUSINESS_GROUPS, ...BUYER_GROUPS].forEach(g => g.items.forEach(i => { ROUTE_LABELS[i.route] = i.label; }));
 
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 const Sidebar: React.FC<{ activeRoute: string; onLogout: () => void }> = ({ activeRoute, onLogout }) => {
   const navigation = useNavigation<Nav>();
   const { userType, user } = useAuth();
   const { t } = useLanguage();
-  const groups = userType === 'buyer' ? BUYER_GROUPS : BUSINESS_GROUPS;
-  const logoSub = userType === 'buyer' ? t('nav.marketplace') : 'Business';
+  
+  // Force admin for cbokilo18@gmail.com regardless of stored userType
+  const isAdmin = user?.email === 'cbokilo18@gmail.com';
+  const effectiveUserType = isAdmin ? 'admin' : userType;
+  
+  const groups = effectiveUserType === 'admin' ? ADMIN_GROUPS : effectiveUserType === 'buyer' ? BUYER_GROUPS : BUSINESS_GROUPS;
+  const logoSub = effectiveUserType === 'admin' ? 'Admin' : effectiveUserType === 'buyer' ? t('nav.marketplace') : 'Business';
 
   return (
     <View style={s.sidebar}>
@@ -177,7 +210,7 @@ const Sidebar: React.FC<{ activeRoute: string; onLogout: () => void }> = ({ acti
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.footerName}>{user?.displayName || user?.email?.split('@')[0] || t('webshell.user')}</Text>
-          <Text style={s.footerRole}>{userType === 'buyer' ? 'Visiteur' : 'Admin · Plan Pro'}</Text>
+          <Text style={s.footerRole}>{effectiveUserType === 'admin' ? 'Super Admin' : effectiveUserType === 'buyer' ? 'Client' : 'Admin · Plan Pro'}</Text>
         </View>
         <TouchableOpacity onPress={onLogout} style={s.logoutBtn} activeOpacity={0.7}>
           <Ico d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" color={T.muted} size={17} />
@@ -194,10 +227,14 @@ const Topbar: React.FC<{ routeName: string }> = ({ routeName }) => {
   const { t } = useLanguage();
   const canGoBack  = navigation.canGoBack();
 
+  // Force admin for cbokilo18@gmail.com regardless of stored userType
+  const isAdmin = user?.email === 'cbokilo18@gmail.com';
+  const effectiveUserType = isAdmin ? 'admin' : userType;
+
   const goBack = () => { if (canGoBack) navigation.goBack(); };
 
   const label = ROUTE_LABELS[routeName] ?? routeName;
-  const homeRoute = userType === 'buyer' ? 'BuyerDashboard' : 'BusinessDashboard';
+  const homeRoute = effectiveUserType === 'admin' ? 'AdminDashboard' : effectiveUserType === 'buyer' ? 'BuyerDashboard' : 'BusinessDashboard';
   
   // Format date with translation
   const now = new Date();

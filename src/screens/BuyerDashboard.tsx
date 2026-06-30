@@ -10,6 +10,8 @@ import { where } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useRealtimeCollection } from '../hooks/useRealtimeData';
 import { T } from '../theme';
+import VerifiedBadge from '../components/VerifiedBadge';
+import UserAvatar from '../components/UserAvatar';
 
 const isWeb = Platform.OS === 'web';
 type Nav = NativeStackNavigationProp<any>;
@@ -47,7 +49,7 @@ const BuyerDashboard: React.FC = () => {
     enabled: !!user?.uid,
   });
 
-  const firstName = (user?.displayName || user?.email?.split('@')[0] || 'Explorer')
+  const firstName = (user?.displayName || user?.email?.split('@')[0] || 'Utilisateur')
     .replace(/^\w/, (c) => c.toUpperCase());
   const greeting = (() => {
     const h = new Date().getHours();
@@ -79,10 +81,24 @@ const BuyerDashboard: React.FC = () => {
     <View style={s.root}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
+        {/* ── Profile Header (White) ─────────────────────────────────────────── */}
+        <View style={s.profileHeader}>
+          <TouchableOpacity onPress={() => navigation.navigate('Settings' as any)} activeOpacity={0.7}>
+            <UserAvatar 
+              name={firstName} 
+              gender="other" 
+              size={56} 
+              showVerified={false} 
+            />
+          </TouchableOpacity>
+          <View style={s.profileTextContainer}>
+            <Text style={s.profileName}>{greeting}, {firstName} 👋</Text>
+          </View>
+        </View>
+
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <View style={s.hero}>
           <View style={s.heroGlow} />
-          <Text style={s.heroEyebrow}>{greeting}, {firstName} 👋</Text>
           <Text style={s.heroTitle}>Que cherchez-vous{'\n'}aujourd'hui ?</Text>
           <View style={s.searchBar}>
             <Ic d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" s={18} c={T.muted} />
@@ -244,10 +260,15 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.page },
   scroll: { padding: isWeb ? 28 : 16, paddingTop: Platform.OS === 'ios' ? 56 : 24, gap: 18, alignItems: 'center' },
 
+  // Profile Header (White)
+  profileHeader: { width: '100%', maxWidth: CARD_MAX, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: T.surface, borderRadius: 16, padding: isWeb ? 20 : 16, borderWidth: 1, borderColor: T.border, marginBottom: 18 },
+  profileTextContainer: { flexDirection: 'column', gap: 4 },
+  profileName: { fontSize: 16, fontWeight: '700', color: T.text },
+
   // Hero
   hero: { width: '100%', maxWidth: CARD_MAX, backgroundColor: '#1A1206', borderRadius: 22, padding: isWeb ? 32 : 22, overflow: 'hidden' },
   heroGlow: { position: 'absolute', top: -60, right: -40, width: 220, height: 220, borderRadius: 110, backgroundColor: T.orange, opacity: 0.22 },
-  heroEyebrow: { color: '#F8C9A8', fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroTitle: { color: '#fff', fontSize: isWeb ? 32 : 26, fontWeight: '800', lineHeight: isWeb ? 38 : 32, marginBottom: 20, letterSpacing: -0.5 },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, paddingLeft: 14, paddingRight: 6, height: 52 },
   searchInput: { flex: 1, fontSize: 15, color: T.text, ...(isWeb ? { outlineStyle: 'none' } as any : {}) },

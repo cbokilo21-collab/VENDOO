@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
   TextInput, Dimensions, Animated, Easing, Platform, Modal,
@@ -11,6 +11,8 @@ import { useBoutique } from '../contexts/BoutiqueContext';
 import { useAuth } from '../contexts/AuthContext';
 import { OrderService } from '../services/orderService';
 import { CustomerService } from '../services/customerService';
+import { FirestoreService } from '../services/firestoreService';
+import { where } from 'firebase/firestore';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -43,35 +45,10 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type PayMethod = 'card' | 'cash' | 'mobile';
 type TabKey = 'caisse' | 'articles' | 'ventes' | 'stats' | 'ia';
 
-interface Product { id: string; nom: string; prix: number; categorie: string; stock: number; }
+interface Product { id: string; nom: string; prix: number; categorie?: string; stock?: number; }
 interface CartItem { product: Product; qty: number; }
 interface RecentSale { id: string; total: number; items: number; method: PayMethod; time: string; }
 interface AIMessage { role: 'user' | 'ai'; text: string; ts: string; }
-
-const CATEGORIES = ['Tous', 'Boissons', 'Boulangerie', 'Épicerie', 'Frais', 'Hygiène', 'Snacks', 'Électronique'];
-
-const PRODUCTS: Product[] = [
-  { id: '1',  nom: 'Coca-Cola 1.5L',      prix: 1200, categorie: 'Boissons',     stock: 48  },
-  { id: '2',  nom: 'Pain de mie',          prix: 650,  categorie: 'Boulangerie',  stock: 22  },
-  { id: '3',  nom: 'Huile Palme 1L',       prix: 1800, categorie: 'Épicerie',     stock: 62  },
-  { id: '4',  nom: 'Riz parfumé 5kg',      prix: 4500, categorie: 'Épicerie',     stock: 34  },
-  { id: '5',  nom: 'Eau minérale 1.5L',    prix: 500,  categorie: 'Boissons',     stock: 120 },
-  { id: '6',  nom: 'Lait 1L',              prix: 1100, categorie: 'Frais',        stock: 18  },
-  { id: '7',  nom: 'Savon Palmolive',       prix: 450,  categorie: 'Hygiène',      stock: 55  },
-  { id: '8',  nom: 'Café Nescafé 200g',    prix: 3200, categorie: 'Épicerie',     stock: 27  },
-  { id: '9',  nom: 'Sucre 1kg',            prix: 900,  categorie: 'Épicerie',     stock: 88  },
-  { id: '10', nom: 'Sardines tomate',       prix: 750,  categorie: 'Épicerie',     stock: 41  },
-  { id: '11', nom: 'Beurre 200g',          prix: 1400, categorie: 'Frais',        stock: 14  },
-  { id: '12', nom: 'Chips Pringles',        prix: 1600, categorie: 'Snacks',       stock: 33  },
-  { id: '13', nom: 'Tomates fraîches 1kg', prix: 800,  categorie: 'Frais',        stock: 9   },
-  { id: '14', nom: 'Dentifrice Colgate',    prix: 1200, categorie: 'Hygiène',      stock: 22  },
-  { id: '15', nom: 'Jus Tropico',          prix: 600,  categorie: 'Boissons',     stock: 68  },
-  { id: '16', nom: 'Batteries AA x4',      prix: 2500, categorie: 'Électronique', stock: 18  },
-  { id: '17', nom: 'Farine 1kg',           prix: 700,  categorie: 'Épicerie',     stock: 45  },
-  { id: '18', nom: 'Yaourt 500g',          prix: 950,  categorie: 'Frais',        stock: 30  },
-  { id: '19', nom: 'Thon en boîte 185g',   prix: 1100, categorie: 'Épicerie',     stock: 52  },
-  { id: '20', nom: "Jus d'orange 1L",      prix: 1300, categorie: 'Boissons',     stock: 28  },
-];
 
 // CFA denominations
 const DENOMS = [500, 1000, 2000, 5000, 10000, 25000];
@@ -86,33 +63,34 @@ const AI_SUGGESTIONS = [
 ];
 
 // AI response generator
-const generateAIResponse = (question: string, sales: RecentSale[], cart: CartItem[]): string => {
+const generateAIResponse = (question: string, sales: RecentSale[], cart: CartItem[], products: Product[]): string => {
   const q = question.toLowerCase();
   const totalSales = sales.reduce((t, s) => t + s.total, 0);
   const totalItems = sales.reduce((t, s) => t + s.items, 0);
 
   if (q.includes('stock faible') || q.includes('stock')) {
-    const lowStock = PRODUCTS.filter(p => p.stock < 15);
+    const lowStock = products.filter(p => (p.stock || 0) < 15);
     if (lowStock.length === 0) return "✅ Tous vos produits ont un stock suffisant !";
-    return `⚠️ ${lowStock.length} produit(s) à stock faible :\n${lowStock.map(p => `• ${p.nom} → ${p.stock} unités`).join('\n')}\n\nJe vous recommande de réapprovisionner ces articles rapidement.`;
+    return `⚠️ ${lowStock.length} produit(s) à stock faible :\n${lowStock.map(p => `• ${p.nom} → ${p.stock || 0} unités`).join('\n')}\n\nJe vous recommande de réapprovisionner ces articles rapidement.`;
   }
   if (q.includes('vendus') || q.includes('populaire') || q.includes('plus vendu')) {
-    return `📊 D'après les tendances de votre catalogue, vos top articles sont :\n\n1. 🥤 Coca-Cola 1.5L – forte rotation\n2. 💧 Eau minérale 1.5L – volume élevé\n3. 🍚 Riz parfumé 5kg – panier moyen élevé\n\nCes articles représentent généralement 40% du CA d'une épicerie.`;
+    if (products.length === 0) return "📊 Aucun produit dans votre catalogue.";
+    return `📊 D'après votre catalogue, vous avez ${products.length} produits disponibles.\n\nAjoutez des ventes pour voir les articles les plus populaires.`;
   }
   if (q.includes('aujourd') || q.includes('vente') || q.includes('résume')) {
     if (sales.length === 0) return "📋 Pas encore de ventes enregistrées aujourd'hui. Commencez à encaisser pour voir vos statistiques ici !";
     return `📈 Résumé du jour :\n\n• ${sales.length} transaction(s) réalisée(s)\n• ${totalItems} articles vendus\n• Total encaissé : ${totalSales.toLocaleString('fr-FR')} F\n• Panier moyen : ${Math.round(totalSales / sales.length).toLocaleString('fr-FR')} F\n\nBonne journée ! 💪`;
   }
   if (q.includes('conseil') || q.includes('augmenter') || q.includes('améliorer')) {
-    return `💡 Conseils pour booster vos ventes :\n\n1. **Offres groupées** – ex: Eau + Jus à prix réduit\n2. **Mise en avant** – placez Coca-Cola et Riz près de la caisse\n3. **Heures de pointe** – maximisez le stock de 7h à 9h et 17h à 19h\n4. **Fidélité** – un client fidèle dépense 3x plus\n5. **Promotions hebdo** – changez l'article en promotion chaque lundi`;
+    return `💡 Conseils pour booster vos ventes :\n\n1. **Offres groupées** – créez des promotions sur les produits populaires\n2. **Mise en avant** – placez vos produits vedettes près de la caisse\n3. **Heures de pointe** – maximisez le stock pendant les heures de rush\n4. **Fidélité** – un client fidèle dépense 3x plus\n5. **Promotions hebdo** – changez l'article en promotion chaque semaine`;
   }
   if (q.includes('panier') || q.includes('encours') || q.includes('actuel')) {
     if (cart.length === 0) return "🛒 Votre panier est vide. Ajoutez des produits pour que je puisse analyser la commande.";
     const cartTotal = cart.reduce((t, i) => t + i.product.prix * i.qty, 0);
-    return `🛒 Panier en cours :\n\n${cart.map(i => `• ${i.product.nom} × ${i.qty} = ${(i.product.prix * i.qty).toLocaleString('fr-FR')} F`).join('\n')}\n\n**Total : ${cartTotal.toLocaleString('fr-FR')} F**\n\n💡 Suggestion : proposez aussi ${PRODUCTS.find(p => !cart.find(c => c.product.id === p.id))?.nom ?? 'Eau minérale'} pour compléter la commande.`;
+    return `🛒 Panier en cours :\n\n${cart.map(i => `• ${i.product.nom} × ${i.qty} = ${(i.product.prix * i.qty).toLocaleString('fr-FR')} F`).join('\n')}\n\n**Total : ${cartTotal.toLocaleString('fr-FR')} F**`;
   }
   if (q.includes('meilleur jour')) {
-    return `📅 D'après les données de votre type de commerce :\n\n🏆 Samedi et Dimanche sont vos meilleurs jours (+35% vs semaine)\n📉 Lundi est généralement le plus calme\n\n💡 Conseil : faites vos approvisionnements le vendredi soir pour être prêt pour le weekend !`;
+    return `📅 Analysez vos ventes pour identifier vos meilleurs jours.\n\n💡 Conseil : faites vos approvisionnements avant vos jours de forte activité !`;
   }
   return `🤖 Je suis votre assistant caisse IA.\n\nJe peux vous aider avec :\n• L'analyse de vos ventes\n• Les alertes de stock\n• Des conseils de gestion\n• L'analyse de votre panier en cours\n\nPosez-moi une question !`;
 };
@@ -157,6 +135,37 @@ const POSScreen: React.FC = () => {
   const [discount, setDiscount]       = useState('0');
   const [search, setSearch]           = useState('');
   const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
+  const [products, setProducts]       = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  // Load products from Firestore
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoadingProducts(true);
+        const boutiqueId = boutiqueData.id || user?.uid;
+        if (boutiqueId) {
+          const fetchedProducts = await FirestoreService.query<any>('products', [
+            where('boutique_id', '==', boutiqueId)
+          ]);
+          const mappedProducts = fetchedProducts.map((p: any) => ({
+            id: p.id,
+            nom: p.nom || 'Produit',
+            prix: p.prix || 0,
+            categorie: p.categorie || 'Autre',
+            stock: p.stock || 0,
+          }));
+          setProducts(mappedProducts);
+        }
+      } catch (error) {
+        console.error('Error loading products:', error);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    loadProducts();
+  }, [boutiqueData.id, user?.uid]);
 
   // Payment modal
   const [showPayModal, setShowPayModal] = useState(false);
@@ -303,14 +312,16 @@ const POSScreen: React.FC = () => {
     setAiInput('');
     setAiThinking(true);
     setTimeout(() => {
-      const response = generateAIResponse(text, recentSales, cart);
+      const response = generateAIResponse(text, recentSales, cart, products);
       setAiMessages(prev => [...prev, { role: 'ai', text: response, ts: now() }]);
       setAiThinking(false);
       setTimeout(() => aiScrollRef.current?.scrollToEnd({ animated: true }), 100);
     }, 900 + Math.random() * 600);
-  }, [recentSales, cart]);
+  }, [recentSales, cart, products]);
 
-  const filtered = PRODUCTS.filter(p =>
+  const categories = ['Tous', ...Array.from(new Set(products.map(p => p.categorie || 'Autre')))];
+  
+  const filtered = products.filter(p =>
     (cat === 'Tous' || p.categorie === cat) &&
     p.nom.toLowerCase().includes(search.toLowerCase())
   );
@@ -447,8 +458,8 @@ const POSScreen: React.FC = () => {
         {[
           { label: 'Ventes aujourd\'hui', val: recentSales.length === 0 ? '0' : String(recentSales.length), icon: '📊' },
           { label: 'Total encaissé', val: formatPrice(recentSales.reduce((t,s)=>t+s.total,0)), icon: '💰' },
-          { label: 'Articles en vente', val: String(PRODUCTS.length), icon: '📦' },
-          { label: 'Stock faible', val: String(PRODUCTS.filter(p=>p.stock<15).length), icon: '⚠️' },
+          { label: 'Articles en vente', val: String(products.length), icon: '📦' },
+          { label: 'Stock faible', val: String(products.filter(p=>(p.stock||0)<15).length), icon: '⚠️' },
         ].map(stat => (
           <View key={stat.label} style={s.iaStat}>
             <Text style={s.iaStatIcon}>{stat.icon}</Text>
@@ -838,7 +849,7 @@ const POSScreen: React.FC = () => {
           {/* Top products */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Top produits vendus</Text>
-            {PRODUCTS.slice(0, 5).map((product, i) => (
+            {products.slice(0, 5).map((product: Product, i: number) => (
               <View key={product.id} style={[s.topProductRow, i < 4 && s.topProductRowBorder]}>
                 <View style={s.topProductRank}>
                   <Text style={s.topProductRankText}>#{i + 1}</Text>
@@ -881,7 +892,7 @@ const POSScreen: React.FC = () => {
 
           {/* Categories */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} contentContainerStyle={s.catRow} keyboardShouldPersistTaps="handled">
-            {CATEGORIES.map(c => (
+            {categories.map((c: string) => (
               <TouchableOpacity key={c} style={[s.catChip, cat === c && s.catChipActive]} onPress={() => setCat(c)}>
                 <Text style={[s.catText, cat === c && s.catTextActive]}>{c}</Text>
               </TouchableOpacity>
@@ -890,7 +901,7 @@ const POSScreen: React.FC = () => {
 
           {/* Product grid */}
           <ScrollView contentContainerStyle={s.productGrid} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {filtered.map(p => {
+            {filtered.map((p: Product) => {
               const inCart = cart.find(i => i.product.id === p.id);
               return (
                 <TouchableOpacity key={p.id} style={[s.productCard, inCart && s.productCardActive]} onPress={() => addToCart(p)} activeOpacity={0.75}>
@@ -901,8 +912,8 @@ const POSScreen: React.FC = () => {
                     <BagIcon size={26} color={inCart ? C.white : C.accent} />
                   </View>
                   <Text style={[s.productName, inCart && s.productNameActive]} numberOfLines={2}>{p.nom}</Text>
-                  <Text style={[s.productPrice, p.stock < 15 && s.productPriceLow]}>{formatPrice(p.prix)}</Text>
-                  <Text style={s.productStock}>Stock: {p.stock}</Text>
+                  <Text style={[s.productPrice, (p.stock || 0) < 15 && s.productPriceLow]}>{formatPrice(p.prix)}</Text>
+                  <Text style={s.productStock}>Stock: {p.stock || 0}</Text>
                 </TouchableOpacity>
               );
             })}

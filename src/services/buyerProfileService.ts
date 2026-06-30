@@ -13,14 +13,14 @@ export interface BuyerProfile {
 
 export const BuyerProfileService = {
   /**
-   * Créer ou mettre à jour le profil d'un visiteur
+   * Créer ou mettre à jour le profil d'un client
    */
   async setProfile(userId: string, data: Partial<BuyerProfile>): Promise<void> {
     await FirestoreService.set('buyerProfiles', userId, data, true);
   },
 
   /**
-   * Obtenir le profil d'un visiteur
+   * Obtenir le profil d'un client
    */
   async getProfile(userId: string): Promise<BuyerProfile | null> {
     return FirestoreService.get<BuyerProfile>('buyerProfiles', userId);
