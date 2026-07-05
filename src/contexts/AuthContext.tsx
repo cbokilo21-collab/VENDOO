@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { User, onAuthStateChanged, sendEmailVerification as firebaseSendEmailVerification } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { UserService, UserType } from '../services/userService';
 
@@ -8,6 +8,7 @@ interface AuthContextType {
   userType: UserType | null;
   setUserType: (type: UserType | null) => void;
   loading: boolean;
+  sendEmailVerification: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,8 +22,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
 
-    // Fast timeout for web to prevent hanging
-    const timeoutMs = 2000;
+    // Timeout for web to prevent hanging (increased to allow Firestore profile loading)
+    const timeoutMs = 30000;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!mounted) return;
@@ -75,8 +76,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const sendEmailVerification = async () => {
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+    await firebaseSendEmailVerification(user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, userType, setUserType, loading }}>
+    <AuthContext.Provider value={{ user, userType, setUserType, loading, sendEmailVerification }}>
       {children}
     </AuthContext.Provider>
   );

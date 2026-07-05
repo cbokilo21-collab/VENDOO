@@ -282,9 +282,9 @@ const POSScreen: React.FC = () => {
     setShowPayModal(false);
     setPaid(true);
     Animated.sequence([
-      Animated.timing(successAnim, { toValue: 1, duration: 400, easing: Easing.out(Easing.back(2)), useNativeDriver: true }),
+      Animated.timing(successAnim, { toValue: 1, duration: 400, easing: Easing.out(Easing.back(2)), useNativeDriver: false }),
       Animated.delay(2200),
-      Animated.timing(successAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(successAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start();
     
     // Navigate to invoice after success animation

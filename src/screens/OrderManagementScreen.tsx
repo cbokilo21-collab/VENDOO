@@ -64,27 +64,22 @@ const statusLabels = {
 
 const OrderManagementScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 'ORD-001',
-      customer: { nom: 'Aïssatou Diallo', phone: '+221776123456', email: 'aissatou@example.com' },
-      items: [{ productId: '1', nom: 'Robe Africaine', quantity: 1, prix: 45000 }],
-      total: 50000,
-      status: 'shipped',
-      createdAt: Date.now() - 86400000 * 2,
-      shippedAt: Date.now() - 86400000,
-      address: { adresse: 'Rue 14, Ngor', ville: 'Dakar', cp: '18200' },
-    },
-    {
-      id: 'ORD-002',
-      customer: { nom: 'Babacar Ndiaye', phone: '+221776654321', email: 'babacar@example.com' },
-      items: [{ productId: '2', nom: 'Cafetière Électrique', quantity: 1, prix: 35000 }, { productId: '3', nom: 'Sucre', quantity: 2, prix: 5000 }],
-      total: 45000,
-      status: 'pending',
-      createdAt: Date.now(),
-      address: { adresse: 'Rue du Commerce', ville: 'Thiès', cp: '19000' },
-    },
-  ]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    try {
+      // Load orders from Firestore
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      setLoading(false);
+    }
+  };
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);

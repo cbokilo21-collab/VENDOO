@@ -96,14 +96,14 @@ const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?
         duration: 600,
         delay,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(animOpacity, {
         toValue: 1,
         duration: 500,
         delay,
         easing: Easing.ease,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);

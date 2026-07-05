@@ -31,6 +31,7 @@ const IHome      = (c: string) => <I color={c} d="M3 3v18h18M18 17V9M13 17V5M8 1
 const IBox       = (c: string) => <I color={c} d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12l8.73-5.04M12 22V12" />;
 const IClip      = (c: string) => <I color={c} d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 10h6M9 14h6" />;
 const IUsers     = (c: string) => <I color={c} d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />;
+const IMessage   = (c: string) => <I color={c} d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />;
 const IGear      = (c: string) => <I color={c} d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />;
 const IPOS       = (c: string) => <I color={c} d="M2 3h20v14H2zM8 21h8M12 17v4" />;
 const IChart     = (c: string) => <I color={c} d="M3 3v18h18M18 17V9M13 17V5M8 17v-3" />;
@@ -39,7 +40,6 @@ const IReceipt   = (c: string) => <I color={c} d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0
 const IMoney     = (c: string) => <I color={c} d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />;
 const IPaint     = (c: string) => <I color={c} d="M2 13.5V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.5M12 2L2 7l10 5 10-5-10-5z" />;
 const IShop      = (c: string) => <I color={c} d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" />;
-const IGlobe     = (c: string) => <I color={c} d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z" />;
 const ISparkle   = (c: string) => <I color={c} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />;
 const ICard      = (c: string) => <I color={c} d="M1 4h22v16H1zM1 10h22" />;
 const IHeart     = (c: string) => <I color={c} d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />;
@@ -48,6 +48,8 @@ const IBook      = (c: string) => <I color={c} d="M4 19.5A2.5 2.5 0 0 1 6.5 17H2
 const IBell      = (c: string) => <I color={c} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />;
 const IStore     = (c: string) => <I color={c} d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10" />;
 const IBriefcase = (c: string) => <I color={c} d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />;
+const ITheme     = (c: string) => <I color={c} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />;
+const IEye       = (c: string) => <I color={c} d="M1 12s4-8 11-8 11 8 11 8 11 8-4 8-11 8-11-8-11-8z" />;
 const ILogout    = (c: string) => <I color={c} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />;
 
 // ── Nav groups ────────────────────────────────────────────────────────────────
@@ -59,6 +61,7 @@ const GROUPS = [
       { route: 'Products',          label: 'Produits',        icon: IBox  },
       { route: 'Orders',            label: 'Commandes',       icon: IClip },
       { route: 'Customers',         label: 'Clients',         icon: IUsers },
+      { route: 'Messages',          label: 'Messages',        icon: IMessage },
     ],
   },
   {
@@ -74,11 +77,17 @@ const GROUPS = [
   {
     label: 'BOUTIQUE',
     items: [
-      { route: 'OnlineStore',        label: 'Boutique en ligne', icon: IGlobe },
+      { route: 'ThemeSelection',     label: 'Constructeur de thème', icon: ITheme },
       { route: 'BoutiqueAppearance', label: 'Apparence',        icon: IPaint },
       { route: 'VendooShop',         label: 'Vendoo Shop',      icon: IShop  },
       { route: 'PaymentSettings',    label: 'Paiements',        icon: ICard  },
       { route: 'Sponsorship',        label: 'Parrainage',       icon: IHeart },
+    ],
+  },
+  {
+    label: 'SITE E-COMMERCE',
+    items: [
+      { route: 'ThemeSitePreview',   label: 'Voir mon site', icon: IEye },
     ],
   },
   {

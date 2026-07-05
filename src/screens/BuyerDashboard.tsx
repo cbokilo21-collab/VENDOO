@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput,
-  Image, Platform, Dimensions,
+  Image, Platform, Dimensions, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { where } from 'firebase/firestore';
+import { where, onSnapshot, doc, getFirestore } from 'firebase/firestore';
+import { updateProfile, reload } from 'firebase/auth';
+import { auth } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRealtimeCollection } from '../hooks/useRealtimeData';
 import { T } from '../theme';
 import VerifiedBadge from '../components/VerifiedBadge';
 import UserAvatar from '../components/UserAvatar';
+import { FirestoreService } from '../services/firestoreService';
+import { StorageService } from '../services/storageService';
+import * as ImagePicker from 'expo-image-picker';
 
 const isWeb = Platform.OS === 'web';
 type Nav = NativeStackNavigationProp<any>;
@@ -39,6 +44,28 @@ const BuyerDashboard: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState(user?.photoURL || '');
+
+  // Real-time listener for user document for instant photo updates
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getFirestore();
+    const userRef = doc(db, 'users', user.uid);
+    
+    const unsubscribe = onSnapshot(userRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        if (userData?.photoURL) {
+          setProfilePhoto(userData.photoURL);
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to user document:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   // Marketplace = every product from every boutique (not filtered by the buyer).
   const { data: products, loading } = useRealtimeCollection<any>('products', { enabled: true });
@@ -74,7 +101,36 @@ const BuyerDashboard: React.FC = () => {
   ];
 
   const submitSearch = () => {
-    navigation.navigate('Marketplace', { query: search.trim() || undefined });
+    navigation.navigate('Marketplace' as any);
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const photoUri = result.assets[0].uri;
+        setProfilePhoto(photoUri);
+        if (user) {
+          // Upload to Firebase Storage
+          const storageUrl = await StorageService.uploadProfilePhoto(user.uid, photoUri);
+          // Save to Firestore
+          await FirestoreService.set('users', user.uid, { photoURL: storageUrl }, true);
+          // Update Firebase Auth
+          await updateProfile(user, { photoURL: storageUrl });
+          // Reload user to get updated profile
+          await reload(user);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
+    }
   };
 
   return (
@@ -83,22 +139,44 @@ const BuyerDashboard: React.FC = () => {
 
         {/* ── Profile Header (White) ─────────────────────────────────────────── */}
         <View style={s.profileHeader}>
-          <TouchableOpacity onPress={() => navigation.navigate('Settings' as any)} activeOpacity={0.7}>
-            <UserAvatar 
-              name={firstName} 
-              gender="other" 
-              size={56} 
-              showVerified={false} 
-            />
+          <TouchableOpacity onPress={pickImage} activeOpacity={0.7}>
+            <View style={s.avatarWrapper}>
+              {profilePhoto ? (
+                <Image source={{ uri: profilePhoto }} style={s.profileImage} />
+              ) : (
+                <UserAvatar 
+                  name={firstName} 
+                  gender="other" 
+                  size={64} 
+                />
+              )}
+              <View style={s.avatarRing} />
+            </View>
           </TouchableOpacity>
           <View style={s.profileTextContainer}>
-            <Text style={s.profileName}>{greeting}, {firstName} 👋</Text>
+            <View style={s.nameRow}>
+              <Text style={s.profileName}>{firstName}</Text>
+              <VerifiedBadge size={18} color="#1DA1F2" />
+            </View>
+            <View style={s.statusRow}>
+              <View style={s.memberBadge}>
+                <Text style={s.memberBadgeText}>MEMBRE</Text>
+              </View>
+              <View style={s.onlineIndicator}>
+                <View style={s.onlineDot} />
+                <Text style={s.onlineText}>En ligne</Text>
+              </View>
+            </View>
+            <Text style={s.profileSub}>Découvrez les boutiques de votre quartier</Text>
           </View>
+          <TouchableOpacity style={s.notificationBtn} onPress={() => navigation.navigate('Notifications' as any)} activeOpacity={0.7}>
+            <Ic d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" s={20} c={T.text} />
+            <View style={s.notificationDot} />
+          </TouchableOpacity>
         </View>
 
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <View style={s.hero}>
-          <View style={s.heroGlow} />
           <Text style={s.heroTitle}>Que cherchez-vous{'\n'}aujourd'hui ?</Text>
           <View style={s.searchBar}>
             <Ic d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" s={18} c={T.muted} />
@@ -114,6 +192,13 @@ const BuyerDashboard: React.FC = () => {
             <TouchableOpacity style={s.searchBtn} onPress={submitSearch} activeOpacity={0.85}>
               <Text style={s.searchBtnText}>Explorer</Text>
             </TouchableOpacity>
+          </View>
+          <View style={s.quickTags}>
+            {['Mode', 'Électronique', 'Déco', 'Alimentation'].map((tag, i) => (
+              <TouchableOpacity key={tag} style={s.tag} onPress={() => navigation.navigate('Marketplace' as any)} activeOpacity={0.7}>
+                <Text style={s.tagText}>{tag}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -261,33 +346,48 @@ const s = StyleSheet.create({
   scroll: { padding: isWeb ? 28 : 16, paddingTop: Platform.OS === 'ios' ? 56 : 24, gap: 18, alignItems: 'center' },
 
   // Profile Header (White)
-  profileHeader: { width: '100%', maxWidth: CARD_MAX, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: T.surface, borderRadius: 16, padding: isWeb ? 20 : 16, borderWidth: 1, borderColor: T.border, marginBottom: 18 },
-  profileTextContainer: { flexDirection: 'column', gap: 4 },
-  profileName: { fontSize: 16, fontWeight: '700', color: T.text },
+  profileHeader: { width: '100%', maxWidth: CARD_MAX, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: T.surface, borderRadius: 20, padding: isWeb ? 20 : 16, borderWidth: 1, borderColor: T.border, marginBottom: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
+  avatarWrapper: { position: 'relative' },
+  profileImage: { width: 64, height: 64, borderRadius: 32 },
+  avatarRing: { position: 'absolute', top: -4, left: -4, right: -4, bottom: -4, borderRadius: 36, borderWidth: 2.5, borderColor: T.orange },
+  cameraBtn: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: T.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: T.surface },
+  profileTextContainer: { flexDirection: 'column', gap: 4, flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  memberBadge: { backgroundColor: T.violet, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 },
+  memberBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  onlineIndicator: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: T.successSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: T.success },
+  onlineText: { fontSize: 10, fontWeight: '600', color: T.success },
+  profileName: { fontSize: 18, fontWeight: '800', color: T.text },
+  profileSub: { fontSize: 13, color: T.textSub, fontWeight: '500', marginTop: 2 },
+  notificationBtn: { width: 42, height: 42, borderRadius: 12, backgroundColor: T.surfaceAlt, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  notificationDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: T.error, borderWidth: 2, borderColor: T.surface },
 
   // Hero
-  hero: { width: '100%', maxWidth: CARD_MAX, backgroundColor: '#1A1206', borderRadius: 22, padding: isWeb ? 32 : 22, overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: -60, right: -40, width: 220, height: 220, borderRadius: 110, backgroundColor: T.orange, opacity: 0.22 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroTitle: { color: '#fff', fontSize: isWeb ? 32 : 26, fontWeight: '800', lineHeight: isWeb ? 38 : 32, marginBottom: 20, letterSpacing: -0.5 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, paddingLeft: 14, paddingRight: 6, height: 52 },
+  hero: { width: '100%', maxWidth: CARD_MAX, backgroundColor: T.surface, borderRadius: 24, padding: isWeb ? 32 : 24, borderWidth: 1, borderColor: T.border },
+  heroTitle: { color: T.text, fontSize: isWeb ? 32 : 26, fontWeight: '800', lineHeight: isWeb ? 38 : 32, marginBottom: 20, letterSpacing: -0.5 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.page, borderRadius: 16, paddingLeft: 16, paddingRight: 6, height: 54, borderWidth: 1.5, borderColor: T.border },
   searchInput: { flex: 1, fontSize: 15, color: T.text, ...(isWeb ? { outlineStyle: 'none' } as any : {}) },
-  searchBtn: { backgroundColor: T.orange, paddingHorizontal: 18, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  searchBtn: { backgroundColor: T.orange, paddingHorizontal: 18, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  quickTags: { flexDirection: 'row', gap: 8, marginTop: 16, flexWrap: 'wrap' },
+  tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: T.orangeSoft, borderWidth: 1, borderColor: T.orangeRing },
+  tagText: { color: T.orange, fontSize: 12, fontWeight: '600' },
 
   // Stats
   statRow: { width: '100%', maxWidth: CARD_MAX, flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  statCard: { flex: 1, minWidth: 140, backgroundColor: T.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border, gap: 8 },
-  statIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 22, fontWeight: '800', color: T.text },
-  statLabel: { fontSize: 12.5, color: T.textSub, fontWeight: '600' },
+  statCard: { flex: 1, minWidth: 150, backgroundColor: T.surface, borderRadius: 18, padding: 20, borderWidth: 1, borderColor: T.border, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
+  statIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontSize: 26, fontWeight: '800', color: T.text, letterSpacing: -0.6 },
+  statLabel: { fontSize: 14, color: T.textSub, fontWeight: '600', marginTop: 2 },
 
   // Quick actions
   quickRow: { width: '100%', maxWidth: CARD_MAX, flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  quickCard: { flexBasis: isWeb ? '48%' : '100%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: T.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border },
-  quickIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  quickCard: { flexBasis: isWeb ? '48%' : '100%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: T.surface, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: T.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6 },
+  quickIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   quickLabel: { fontSize: 15, fontWeight: '700', color: T.text },
-  quickSub: { fontSize: 12.5, color: T.textSub, marginTop: 1 },
+  quickSub: { fontSize: 12.5, color: T.textSub, marginTop: 2 },
 
   // Sections
   section: { width: '100%', maxWidth: CARD_MAX, gap: 14 },
@@ -297,39 +397,39 @@ const s = StyleSheet.create({
   muted: { fontSize: 13, color: T.muted },
 
   // Product rail
-  productRail: { gap: 14, paddingRight: 8, paddingBottom: 4 },
-  productCard: { width: 150 },
-  productImg: { width: 150, height: 150, borderRadius: 14, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 8 },
+  productRail: { gap: 16, paddingRight: 8, paddingBottom: 4 },
+  productCard: { width: 156 },
+  productImg: { width: 156, height: 156, borderRadius: 16, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
   productImgInner: { width: '100%', height: '100%' },
-  productName: { fontSize: 13.5, fontWeight: '600', color: T.text },
-  productPrice: { fontSize: 14, fontWeight: '800', color: T.orange, marginTop: 2 },
+  productName: { fontSize: 14, fontWeight: '600', color: T.text },
+  productPrice: { fontSize: 15, fontWeight: '800', color: T.orange, marginTop: 3 },
 
   // Districts
-  districtList: { gap: 10 },
-  districtCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: T.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: T.border },
-  districtBadge: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  districtName: { fontSize: 15, fontWeight: '700', color: T.text },
-  districtTag: { fontSize: 12.5, color: T.textSub, marginTop: 1 },
+  districtList: { gap: 12 },
+  districtCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: T.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6 },
+  districtBadge: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  districtName: { fontSize: 16, fontWeight: '700', color: T.text },
+  districtTag: { fontSize: 13, color: T.textSub, marginTop: 2 },
   districtCountWrap: { alignItems: 'flex-end' },
-  districtCount: { fontSize: 16, fontWeight: '800', color: T.text },
+  districtCount: { fontSize: 17, fontWeight: '800', color: T.text },
   districtCountLbl: { fontSize: 11, color: T.muted },
 
   // Orders
-  orderList: { backgroundColor: T.surface, borderRadius: 16, borderWidth: 1, borderColor: T.border, overflow: 'hidden' },
-  orderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  orderList: { backgroundColor: T.surface, borderRadius: 18, borderWidth: 1, borderColor: T.border, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6 },
+  orderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   orderBorder: { borderTopWidth: 1, borderTopColor: T.divider },
-  orderIcon: { width: 40, height: 40, borderRadius: 11, backgroundColor: T.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  orderTitle: { fontSize: 14, fontWeight: '700', color: T.text },
-  orderSub: { fontSize: 12.5, color: T.textSub, marginTop: 1 },
-  orderAmount: { fontSize: 14, fontWeight: '800', color: T.text },
+  orderIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: T.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  orderTitle: { fontSize: 15, fontWeight: '700', color: T.text },
+  orderSub: { fontSize: 13, color: T.textSub, marginTop: 2 },
+  orderAmount: { fontSize: 15, fontWeight: '800', color: T.text },
 
   // Empty states
-  emptyCard: { backgroundColor: T.surface, borderRadius: 16, borderWidth: 1, borderColor: T.border, padding: 28, alignItems: 'center', gap: 8 },
-  emptyEmoji: { fontSize: 40, marginBottom: 4 },
-  emptyText: { fontSize: 15, fontWeight: '700', color: T.textMid },
-  emptySub: { fontSize: 13, color: T.muted, textAlign: 'center' },
-  emptyCta: { marginTop: 12, backgroundColor: T.orange, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
-  emptyCtaText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  emptyCard: { backgroundColor: T.surface, borderRadius: 18, borderWidth: 1, borderColor: T.border, padding: 32, alignItems: 'center', gap: 10 },
+  emptyEmoji: { fontSize: 44, marginBottom: 6 },
+  emptyText: { fontSize: 16, fontWeight: '700', color: T.textMid },
+  emptySub: { fontSize: 13, color: T.muted, textAlign: 'center', lineHeight: 19 },
+  emptyCta: { marginTop: 16, backgroundColor: T.orange, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, shadowColor: T.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  emptyCtaText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
 
 export default BuyerDashboard;

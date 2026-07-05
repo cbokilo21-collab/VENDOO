@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Modal, Share } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Modal, Share, Alert } from 'react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
 import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
+import { tokenService, Referral as TokenReferral, TOKEN_VALUE_USD, REFERRAL_COMMISSION_PERCENTAGE, MERCHANTS_FOR_BONUS, MERCHANT_BONUS_TOKENS } from '../services/TokenService';
+
+type Nav = NavigationProp<any>;
 
 const C = {
   bg: '#F8FAFC', surface: '#FFFFFF', border: '#E2E8F0',
@@ -9,7 +14,7 @@ const C = {
   success: '#22C55E', warning: '#F59E0B', purple: '#8B5CF6',
 };
 
-interface Referral {
+interface ReferralItem {
   id: string;
   name: string;
   date: string;
@@ -17,7 +22,7 @@ interface Referral {
   status: 'completed' | 'pending';
 }
 
-const REFERRALS: Referral[] = [
+const REFERRALS: ReferralItem[] = [
   { id: '1', name: 'Jean Dupont', date: '2024-01-15', bonus: '5 000 F', status: 'completed' },
   { id: '2', name: 'Marie Kouassi', date: '2024-02-20', bonus: '5 000 F', status: 'completed' },
   { id: '3', name: 'Paul YAO', date: '2024-03-10', bonus: '5 000 F', status: 'pending' },
@@ -31,18 +36,51 @@ const REWARDS = [
 ];
 
 const ReferralScreen: React.FC = () => {
+  const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const [referralCode, setReferralCode] = useState('VENDOO-2024');
-  const [points, setPoints] = useState(350);
+  const [points, setPoints] = useState(0);
+  const [referrals, setReferrals] = useState<TokenReferral[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  useEffect(() => {
+    loadReferralData();
+  }, [user]);
+
+  const loadReferralData = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const wallet = await tokenService.getWallet(user.uid);
+      if (wallet) {
+        setPoints(wallet.balance);
+      }
+
+      const userReferrals = await tokenService.getReferrals(user.uid);
+      setReferrals(userReferrals);
+    } catch (error) {
+      console.error('Error loading referral data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const shareReferral = () => {
     Share.share({
-      message: `Rejoignez ma boutique sur Vendoo ! Utilisez mon code ${referralCode} pour obtenir 5 000 F de bonus. 🎁`,
-      url: 'https://vendoo-boutique.netlify.app',
+      message: `Rejoignez Vendoo ! Utilisez mon code ${referralCode} pour obtenir des bonus. 1 VENDOO = ${TOKEN_VALUE_USD}$ 🎁`,
+      url: 'https://vendoo-67f37.web.app',
     });
   };
 
-  const renderReferralItem = (referral: Referral) => (
+  const copyReferralCode = () => {
+    // Copy to clipboard (web)
+    navigator.clipboard.writeText(referralCode);
+    Alert.alert('Succès', 'Code copié!');
+  };
+
+  const renderReferralItem = (referral: ReferralItem) => (
     <View key={referral.id} style={s.referralItem}>
       <View style={s.referralIcon}>
         <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth={2}>
@@ -103,7 +141,7 @@ const ReferralScreen: React.FC = () => {
           <Text style={s.cardTitle}>Votre code de parrainage</Text>
           <View style={s.codeContainer}>
             <Text style={s.code}>{referralCode}</Text>
-            <TouchableOpacity style={s.copyBtn}>
+            <TouchableOpacity style={s.copyBtn} onPress={copyReferralCode}>
               <Text style={s.copyBtnText}>📋 Copier</Text>
             </TouchableOpacity>
           </View>
@@ -119,7 +157,35 @@ const ReferralScreen: React.FC = () => {
 
         <View style={s.card}>
           <Text style={s.cardTitle}>Vos parrainages</Text>
-          {REFERRALS.map(renderReferralItem)}
+          {referrals.length === 0 ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyText}>Aucun parrainage pour le moment</Text>
+              <Text style={s.emptySub}>Partagez votre code pour commencer!</Text>
+            </View>
+          ) : (
+            referrals.map((referral) => (
+              <View key={referral.id} style={s.referralItem}>
+                <View style={s.referralIcon}>
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth={2}>
+                    <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <Circle cx="12" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </Svg>
+                </View>
+                <View style={s.referralInfo}>
+                  <Text style={s.referralName}>{referral.referredEmail}</Text>
+                  <Text style={s.referralDate}>{new Date(referral.referralDate).toLocaleDateString('fr-FR')}</Text>
+                </View>
+                <View style={s.referralRight}>
+                  <Text style={s.referralBonus}>{tokenService.formatTokens(referral.commissionEarned / TOKEN_VALUE_USD)}</Text>
+                  <View style={[s.statusBadge, { backgroundColor: referral.status === 'completed' ? C.success + '20' : C.warning + '20' }]}>
+                    <Text style={[s.statusText, { color: referral.status === 'completed' ? C.success : C.warning }]}>
+                      {referral.status === 'completed' ? 'Reçu' : 'En attente'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         <View style={s.infoCard}>
@@ -248,6 +314,13 @@ const s = StyleSheet.create({
   },
   infoTitle: { fontSize: 16, fontWeight: '800', color: C.purple, marginBottom: 12 },
   infoText: { fontSize: 14, color: C.textMid, marginBottom: 6 },
+  
+  emptyState: {
+    backgroundColor: C.bg, borderRadius: 12, padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: { fontSize: 14, color: C.textMid, marginBottom: 4 },
+  emptySub: { fontSize: 12, color: C.textLight },
   
   shareModalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',

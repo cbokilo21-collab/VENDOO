@@ -138,8 +138,8 @@ export const AdvancedFacade: React.FC<FacadeProps> = ({
     if (!animated) return;
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(scaleAnim, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
-        Animated.timing(scaleAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1.05, duration: 2000, useNativeDriver: false }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 2000, useNativeDriver: false }),
       ])
     );
     animation.start();

@@ -6,6 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import BottomNavigation from '../components/BottomNavigation';
+import ModuleBar from '../components/ModuleBar';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useProducts } from '../contexts/ProductsContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -54,6 +55,8 @@ const ProductsScreen: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
+  const [editImageUri, setEditImageUri] = useState('');
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
   // Create-product modal state (Shopify-style product editor)
   const [showAdd, setShowAdd] = useState(false);
@@ -153,14 +156,44 @@ const ProductsScreen: React.FC = () => {
     setEditName(p.nom);
     setEditPrice(p.prix.toString());
     setEditStock(p.stock.toString());
+    setEditImageUri(p.imageUri || '');
+    setEditImageFile(null);
     setShowModal(true);
+  };
+
+  const pickEditImage = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: any) => {
+      const file: File | undefined = e.target?.files?.[0];
+      if (file) {
+        setEditImageFile(file);
+        setEditImageUri(URL.createObjectURL(file));
+      }
+    };
+    input.click();
   };
 
   const handleSave = async () => {
     if (!selectedProduct) return;
     const prix = parseInt(editPrice) || selectedProduct.prix;
     const stock = parseInt(editStock) || selectedProduct.stock;
+    
+    // Update product basic info
     await updateProduct(selectedProduct.id, { nom: editName, prix, stock });
+    
+    // Upload new image if changed
+    if (editImageFile && user?.uid) {
+      try {
+        const url = await StorageService.uploadProductImage(user.uid, selectedProduct.id, editImageUri);
+        await updateProduct(selectedProduct.id, { imageUri: url });
+      } catch (imgErr) {
+        console.warn('Image upload failed:', imgErr);
+      }
+    }
+    
     setShowModal(false);
   };
 
@@ -333,6 +366,23 @@ const ProductsScreen: React.FC = () => {
                 />
               </View>
 
+              <View style={s.field}>
+                <Text style={s.label}>Image</Text>
+                <TouchableOpacity 
+                  style={s.imagePickerBtn}
+                  onPress={pickEditImage}
+                  activeOpacity={0.8}
+                >
+                  {editImageUri ? (
+                    <Image source={{ uri: editImageUri }} style={s.imagePreview} />
+                  ) : (
+                    <View style={s.editImagePlaceholder}>
+                      <Ico d="M4 16l8-8m-8 0l8 8M20 4l-8 8m8-8l-8-8" s={32} c={C.muted} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <View style={s.fieldRow}>
                 <TouchableOpacity
                   style={[s.actionBtn, { backgroundColor: C.success }]}
@@ -481,7 +531,7 @@ const ProductsScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {Platform.OS !== 'web' && <BottomNavigation activeRoute="Products" />}
+      {Platform.OS !== 'web' && <ModuleBar activeRoute="Products" />}
     </View>
   );
 };
@@ -532,6 +582,9 @@ const s = StyleSheet.create({
   fieldRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
   actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   actionText: { color: C.surface, fontWeight: '700', fontSize: 14 },
+  imagePickerBtn: { width: '100%', height: 120, borderRadius: 10, borderWidth: 2, borderColor: C.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.bg },
+  imagePreview: { width: '100%', height: '100%' },
+  editImagePlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
 
   // Shopify-style product sheet
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

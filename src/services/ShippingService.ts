@@ -327,7 +327,6 @@ class ShippingService {
     }
 
     // In a real implementation, this would call the carrier's API to generate a label
-    // For now, we'll return a mock URL
     const labelUrl = `https://labels.vendoo.com/${shipment.id}.pdf`;
     shipment.labelUrl = labelUrl;
     shipment.updatedAt = new Date().toISOString();

@@ -73,14 +73,14 @@ const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?
         duration: 600,
         delay,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(animOpacity, {
         toValue: 1,
         duration: 500,
         delay,
         easing: Easing.ease,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -103,14 +103,22 @@ const CustomersScreen: React.FC = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<{ text: string; isMe: boolean }[]>([]);
 
-  const customers: Customer[] = [
-    { id: '1', nom: 'Sophie Martin',  email: 'sophie@gmail.com', commandes: 14, total: 1820, segment: 'vip',     dernierAchat: '27 juin', insight: 'Achète surtout le week-end — idéale pour les offres Flash.' },
-    { id: '2', nom: 'Lucas Bernard',  email: 'lucas@gmail.com',  commandes:  6, total:  680, segment: 'fidele',  dernierAchat: '24 juin' },
-    { id: '3', nom: 'Emma Dubois',    email: 'emma@gmail.com',   commandes:  1, total:   97, segment: 'nouveau', dernierAchat: '26 juin', insight: 'Premier achat récent. Bon candidat pour un email de fidélisation.' },
-    { id: '4', nom: 'Nathan Petit',   email: 'nathan@gmail.com', commandes:  3, total:  310, segment: 'fidele',  dernierAchat: '25 juin' },
-    { id: '5', nom: 'Chloé Moreau',  email: 'chloe@gmail.com',  commandes: 19, total: 3200, segment: 'vip',     dernierAchat: '23 juin', insight: 'Client VIP — panier moyen élevé. Priorité au service personnalisé.' },
-    { id: '6', nom: 'Tom Laurent',    email: 'tom@gmail.com',    commandes:  0, total:    0, segment: 'inactif', dernierAchat: '—' },
-  ];
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  const loadCustomers = async () => {
+    try {
+      // Load customers from Firestore
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      setLoading(false);
+    }
+  };
 
   const filtered = customers
     .filter(c => filterSegment === 'all' || c.segment === filterSegment)
@@ -138,8 +146,26 @@ const CustomersScreen: React.FC = () => {
     <ScrollView style={s.content} contentContainerStyle={s.inner} showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
       <AnimatedCard delay={0} style={s.pageHeader}>
-        <Text style={s.pageTitle}>{t('customers.title')}</Text>
-        <Text style={s.pageSubtitle}>{customers.length} {t('customers.registered')}</Text>
+        <View style={s.headerLeft}>
+          <Text style={s.pageTitle}>{t('customers.title')}</Text>
+          <Text style={s.pageSubtitle}>{customers.length} {t('customers.registered')}</Text>
+          <View style={s.statsRow}>
+            <View style={s.statChip}>
+              <Text style={s.statLabel}>VIP</Text>
+              <Text style={s.statValue}>{customers.filter(c => c.segment === 'vip').length}</Text>
+            </View>
+            <View style={[s.statChip, s.statChipNew]}>
+              <Text style={s.statLabel}>Nouveaux</Text>
+              <Text style={s.statValue}>{customers.filter(c => c.segment === 'nouveau').length}</Text>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity style={s.addBtn} onPress={() => {}}>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
+            <Path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/>
+          </Svg>
+          <Text style={s.addBtnText}>Ajouter</Text>
+        </TouchableOpacity>
       </AnimatedCard>
 
       {/* Search */}
@@ -296,9 +322,17 @@ const s = StyleSheet.create({
 
   content:      { flex: 1 },
   inner:        { padding: 28, gap: 16, paddingBottom: 60 },
-  pageHeader:   { marginBottom: 4 },
-  pageTitle:    { fontSize: 24, fontWeight: '800', color: C.textDark, marginBottom: 3 },
+  pageHeader:   { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 },
+  headerLeft:   { flex: 1 },
+  pageTitle:    { fontSize: 26, fontWeight: '800', color: C.textDark, marginBottom: 3, letterSpacing: -0.5 },
   pageSubtitle: { fontSize: 14, color: C.textLight },
+  statsRow:     { flexDirection: 'row', gap: 8, marginTop: 8 },
+  statChip:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.purple + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: C.purple + '30' },
+  statChipNew:  { backgroundColor: C.success + '15', borderColor: C.success + '30' },
+  statLabel:    { fontSize: 11, fontWeight: '600', color: C.textMid, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue:    { fontSize: 13, fontWeight: '800', color: C.textDark },
+  addBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, shadowColor: C.accent, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6 },
+  addBtnText:   { fontSize: 13, fontWeight: '700', color: C.white },
   mobileHeader: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
   mobileTitle:  { fontSize: 22, fontWeight: '800', color: C.textDark },
 

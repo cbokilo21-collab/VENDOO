@@ -6,6 +6,7 @@ export interface Message {
   conversationId: string;
   senderId: string;
   senderName: string;
+  senderPhotoURL?: string;
   text: string;
   timestamp?: any;
   read: boolean;
@@ -15,8 +16,10 @@ export interface Conversation {
   id?: string;
   buyerId: string;
   buyerName: string;
+  buyerPhotoURL?: string;
   storeId: string;
   storeName: string;
+  storePhotoURL?: string;
   lastMessage?: string;
   lastMessageTimestamp?: any;
   unreadCount: number;
@@ -60,7 +63,7 @@ export const MessagingService = {
   /**
    * Obtenir ou créer une conversation entre un client et une boutique
    */
-  async getOrCreateConversation(buyerId: string, buyerName: string, storeId: string, storeName: string): Promise<Conversation> {
+  async getOrCreateConversation(buyerId: string, buyerName: string, storeId: string, storeName: string, buyerPhotoURL?: string, storePhotoURL?: string): Promise<Conversation> {
     try {
       const existing = await FirestoreService.query<Conversation>('conversations', [
         where('buyerId', '==', buyerId),
@@ -68,6 +71,13 @@ export const MessagingService = {
       ]);
 
       if (existing.length > 0) {
+        // Update photoURLs if they changed
+        if (buyerPhotoURL && existing[0].buyerPhotoURL !== buyerPhotoURL) {
+          await FirestoreService.update<Conversation>('conversations', existing[0].id!, { buyerPhotoURL });
+        }
+        if (storePhotoURL && existing[0].storePhotoURL !== storePhotoURL) {
+          await FirestoreService.update<Conversation>('conversations', existing[0].id!, { storePhotoURL });
+        }
         return existing[0];
       }
     } catch (error) {
@@ -77,8 +87,10 @@ export const MessagingService = {
     const conversationId = await this.createConversation({
       buyerId,
       buyerName,
+      buyerPhotoURL,
       storeId,
       storeName,
+      storePhotoURL,
     });
 
     const conversation = await this.getConversation(conversationId);
@@ -92,7 +104,7 @@ export const MessagingService = {
   /**
    * Envoyer un message texte
    */
-  async sendMessage(conversationId: string, senderId: string, senderName: string, text: string): Promise<string> {
+  async sendMessage(conversationId: string, senderId: string, senderName: string, text: string, senderPhotoURL?: string): Promise<string> {
     const conversation = await this.getConversation(conversationId);
     if (!conversation) {
       throw new Error('Conversation does not exist');
@@ -102,6 +114,7 @@ export const MessagingService = {
       conversationId,
       senderId,
       senderName,
+      senderPhotoURL,
       text,
       read: false,
       timestamp: new Date(),

@@ -29,8 +29,8 @@ const FadeIn: React.FC<{ delay?: number; children: React.ReactNode; style?: any 
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 450, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 450, delay, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      Animated.timing(translateY, { toValue: 0, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
     ]).start();
   }, []);
 
@@ -95,9 +95,19 @@ const OrdersScreen: React.FC = () => {
           <Text style={st.pageSub}>
             {loading ? t('common.loading') : `${stats.total} ${t('orders.orders')} · ${(stats.revenue / 1000).toFixed(0)}k F ${t('orders.collected')}`}
           </Text>
+          <View style={st.statsRow}>
+            <View style={st.statChip}>
+              <Text style={st.statLabel}>En cours</Text>
+              <Text style={st.statValue}>{stats.pending}</Text>
+            </View>
+            <View style={[st.statChip, st.statChipSuccess]}>
+              <Text style={st.statLabel}>Livré</Text>
+              <Text style={st.statValue}>{stats.done}</Text>
+            </View>
+          </View>
         </View>
         <TouchableOpacity style={st.newBtn} onPress={() => navigation.navigate('POS' as any)} activeOpacity={0.85}>
-          <Ic d="M12 5v14M5 12h14" s={16} c="#fff" w={2.5} />
+          <Ic d="M12 5v14M5 12h14" s={18} c="#fff" w={2.5} />
           <Text style={st.newBtnText}>{t('orders.newSale')}</Text>
         </TouchableOpacity>
       </FadeIn>
@@ -242,14 +252,19 @@ const st = StyleSheet.create({
   proBadge: { backgroundColor: T.orange, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
   proBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   pageSub:   { fontSize: 13, color: T.textSub, marginTop: 3 },
-  newBtn:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.orange, paddingHorizontal: 14, height: 40, borderRadius: 11, shadowColor: T.orange, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  statsRow:  { flexDirection: 'row', gap: 8, marginTop: 8 },
+  statChip:  { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.warningSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: T.warning + '30' },
+  statChipSuccess: { backgroundColor: T.successSoft, borderColor: T.success + '30' },
+  statLabel: { fontSize: 11, fontWeight: '600', color: T.textMid, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue: { fontSize: 13, fontWeight: '800', color: T.text },
+  newBtn:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.orange, paddingHorizontal: 16, height: 42, borderRadius: 12, shadowColor: T.orange, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   newBtnText:{ fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  kpiRow: { flexDirection: 'row', gap: 10 },
-  kpi:    { flex: 1, backgroundColor: T.surface, borderRadius: radius.md, padding: 14, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: T.border, ...shadow.card },
-  kpiIcon:{ width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  kpiVal: { fontSize: 18, fontWeight: '800', color: T.text },
-  kpiLbl: { fontSize: 10, color: T.muted, fontWeight: '600', textAlign: 'center' },
+  kpiRow: { flexDirection: 'row', gap: 12 },
+  kpi:    { flex: 1, backgroundColor: T.surface, borderRadius: 16, padding: 16, alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: T.border, ...shadow.card },
+  kpiIcon:{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  kpiVal: { fontSize: 20, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
+  kpiLbl: { fontSize: 11, color: T.muted, fontWeight: '600', textAlign: 'center', marginTop: 2 },
 
   searchBar:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.surface, borderRadius: radius.md, paddingHorizontal: 14, height: 46, borderWidth: 1, borderColor: T.border },
   searchInput: { flex: 1, fontSize: 14, color: T.text },

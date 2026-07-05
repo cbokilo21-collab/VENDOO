@@ -1,15 +1,12 @@
 import React from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import VerifiedBadge from './VerifiedBadge';
 
 interface UserAvatarProps {
   imageUrl?: string | null;
   name?: string;
   gender?: 'male' | 'female' | 'other';
   size?: number;
-  showVerified?: boolean;
-  verifiedColor?: string;
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({
@@ -17,31 +14,28 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   name,
   gender = 'other',
   size = 48,
-  showVerified = false,
-  verifiedColor = '#1DA1F2',
 }) => {
   const avatarSize = size;
-  const badgeSize = size * 0.35;
 
   const renderDefaultAvatar = () => {
     if (gender === 'female') {
       return (
         <Svg width={avatarSize} height={avatarSize} viewBox="0 0 24 24" fill="none">
-          <Circle cx={12} cy={12} r={12} fill="#FF6B9D" />
+          <Circle cx={12} cy={12} r={10} fill="#FF6B9D" />
           <Path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM5 20a7 7 0 0 1 14 0" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     } else if (gender === 'male') {
       return (
         <Svg width={avatarSize} height={avatarSize} viewBox="0 0 24 24" fill="none">
-          <Circle cx={12} cy={12} r={12} fill="#3B82F6" />
+          <Circle cx={12} cy={12} r={10} fill="#3B82F6" />
           <Path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM5 20a7 7 0 0 1 14 0" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     } else {
       return (
         <Svg width={avatarSize} height={avatarSize} viewBox="0 0 24 24" fill="none">
-          <Circle cx={12} cy={12} r={12} fill="#9CA3AF" />
+          <Circle cx={12} cy={12} r={10} fill="#9CA3AF" />
           <Path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM5 20a7 7 0 0 1 14 0" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
@@ -55,11 +49,6 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
       ) : (
         renderDefaultAvatar()
       )}
-      {showVerified && (
-        <View style={[s.badgeContainer, { width: badgeSize, height: badgeSize }]}>
-          <VerifiedBadge size={badgeSize} color={verifiedColor} />
-        </View>
-      )}
     </View>
   );
 };
@@ -70,13 +59,6 @@ const s = StyleSheet.create({
   },
   image: {
     borderRadius: 999,
-  },
-  badgeContainer: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderRadius: 999,
-    overflow: 'hidden',
   },
 });
 

@@ -89,9 +89,21 @@ import NotificationsScreen      from '../screens/NotificationsScreen';
 import NotificationDetailScreen from '../screens/NotificationDetailScreen';
 import MarketingScreen          from '../screens/MarketingScreen';
 
-// Online Store & AI
-import OnlineStoreScreen         from '../screens/OnlineStoreScreen';
+// AI
 import AIAgentiqueScreen        from '../screens/AIAgentiqueScreen';
+
+// Theme Builder
+import ThemeSelectionScreen     from '../screens/ThemeSelectionScreen';
+import ThemeElementDetailScreen from '../screens/ThemeElementDetailScreen';
+import ThemeBuilder             from '../screens/ThemeBuilder';
+import ThemeBuilderAdvanced     from '../screens/ThemeBuilderAdvanced';
+import ThemeSitePreviewScreen   from '../screens/ThemeSitePreviewScreen';
+import PackSelectionScreen      from '../screens/PackSelectionScreen';
+import PaymentScreen            from '../screens/PaymentScreen';
+import EmailVerificationScreen  from '../screens/EmailVerificationScreen';
+import TwoFactorAuthScreen      from '../screens/TwoFactorAuthScreen';
+import SecurityPuzzleScreen     from '../screens/SecurityPuzzleScreen';
+import WalletScreen             from '../screens/WalletScreen';
 
 // New Features
 import InvoicesScreen           from '../screens/InvoicesScreen';
@@ -112,34 +124,19 @@ const AppNavigator: React.FC = () => {
   const isAdmin = user?.email === 'cbokilo18@gmail.com';
   const effectiveUserType = isAdmin ? 'admin' : userType;
 
-  // Navigation state persistence
-  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+  // Navigation ref
+  const navigationRef = useRef<any>(null);
 
+  // Clear any old saved routes on mount to prevent navigation errors
   useEffect(() => {
     if (Platform.OS === 'web') {
-      // Restore saved route from localStorage
-      const savedRoute = localStorage.getItem('vendoo_current_route');
-      if (savedRoute) {
-        setInitialRoute(savedRoute);
-      }
+      localStorage.removeItem('vendoo_current_route');
     }
   }, []);
 
-  // Save current route on navigation
-  const navigationRef = useRef<any>(null);
-  const onNavigationStateChange = () => {
-    if (Platform.OS === 'web' && navigationRef.current) {
-      const currentRoute = navigationRef.current.getCurrentRoute();
-      if (currentRoute) {
-        localStorage.setItem('vendoo_current_route', currentRoute.name);
-      }
-    }
-  };
-
-  // Determine initial route based on auth state and saved route
+  // Determine initial route based on auth state
   const getInitialRoute = () => {
     if (!user) return 'Landing';
-    if (initialRoute) return initialRoute;
     if (effectiveUserType === 'admin') return 'AdminDashboard';
     if (effectiveUserType === 'buyer') return 'BuyerDashboard';
     return 'BusinessDashboard';
@@ -156,7 +153,6 @@ const AppNavigator: React.FC = () => {
   return (
     <NavigationContainer
       ref={navigationRef}
-      onStateChange={onNavigationStateChange}
     >
       <Stack.Navigator 
         screenOptions={{ headerShown: false, animation: isWeb ? 'none' : 'slide_from_right' }}
@@ -226,9 +222,21 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="PaymentSettings"    component={withWebShell(PaymentSettingsScreen,   'PaymentSettings')} />
                 <Stack.Screen name="Sponsorship"        component={withWebShell(SponsorshipScreen,       'Sponsorship')} />
 
-                {/* ── Online Store & AI ─────────────────────────────────── */}
-                <Stack.Screen name="OnlineStore"        component={withWebShell(OnlineStoreScreen,       'OnlineStore')} />
+                {/* ── AI ─────────────────────────────────────────────────── */}
                 <Stack.Screen name="AIAgentique"       component={withWebShell(AIAgentiqueScreen,      'AIAgentique')} />
+
+                {/* ── Theme Builder ─────────────────────────────────────── */}
+                <Stack.Screen name="ThemeSelection"       component={withWebShell(ThemeSelectionScreen,    'ThemeSelection')} />
+                <Stack.Screen name="ThemeBuilder"         component={withWebShell(ThemeBuilder,           'ThemeBuilder')} />
+                <Stack.Screen name="ThemeBuilderAdvanced" component={withWebShell(ThemeBuilderAdvanced,   'ThemeBuilderAdvanced')} />
+                <Stack.Screen name="ThemeSitePreview"     component={ThemeSitePreviewScreen} />
+                <Stack.Screen name="ThemeElementDetail"    component={withWebShell(ThemeElementDetailScreen, 'ThemeElementDetail')} />
+                <Stack.Screen name="PackSelection"        component={withWebShell(PackSelectionScreen,     'PackSelection')} />
+                <Stack.Screen name="Payment"              component={withWebShell(PaymentScreen,           'Payment')} />
+                <Stack.Screen name="EmailVerification"    component={withWebShell(EmailVerificationScreen, 'EmailVerification')} />
+                <Stack.Screen name="TwoFactorAuth"        component={withWebShell(TwoFactorAuthScreen,     'TwoFactorAuth')} />
+                <Stack.Screen name="SecurityPuzzle"       component={withWebShell(SecurityPuzzleScreen,    'SecurityPuzzle')} />
+                <Stack.Screen name="Wallet"               component={withWebShell(WalletScreen,            'Wallet')} />
 
                 {/* ── New Features ─────────────────────────────────────────── */}
                 <Stack.Screen name="Invoices"          component={withWebShell(InvoicesScreen,         'Invoices')} />
@@ -274,6 +282,7 @@ const AppNavigator: React.FC = () => {
             {/* ── Quartier ────────────────────────────────────────────── */}
             <Stack.Screen name="CountrySelection"   component={CountrySelectionScreen} />
             <Stack.Screen name="QuartierScreen"     component={QuartierScreen}           />
+            <Stack.Screen name="BoutiqueCatalog"    component={BoutiqueCatalogScreen}    />
 
             {/* ── Boutique management ──────────────────────────────────── */}
             <Stack.Screen name="BoutiqueManagement" component={BoutiqueManagementScreen} />

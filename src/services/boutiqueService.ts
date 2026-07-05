@@ -65,4 +65,8 @@ export const BoutiqueService = {
     ]);
     return results.length > 0 ? results[0] : null;
   },
+
+  async getAll(): Promise<Boutique[]> {
+    return FirestoreService.getAll<Boutique>('boutiques');
+  },
 };

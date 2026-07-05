@@ -208,26 +208,37 @@ const ProductsManagerScreen: React.FC = () => {
       onLongPress={() => handleToggleSelect(p.id!)}
       activeOpacity={0.8}
     >
-      <View style={s.cardImage}>
-        {p.imageUri ? (
-          <Image source={{ uri: p.imageUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-        ) : (
-          <View style={s.imagePlaceholder}>
-            <Ico d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.66-.9l.82-1.2A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" s={28} c={C.muted} />
-          </View>
-        )}
-        {selectedProducts.has(p.id!) && <View style={s.selectCheckmark} />}
-        <View style={[s.stockBadge, { backgroundColor: p.stock === 0 ? C.danger : p.stock < 10 ? C.warning : C.success }]}>
-          <Text style={s.stockText}>{p.stock}</Text>
+      <View style={s.cardRow}>
+        <View style={s.thumbnail}>
+          {p.imageUri ? (
+            <Image 
+              source={{ uri: p.imageUri }} 
+              style={s.thumbnailImage} 
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[s.thumbnailImage, s.thumbnailPlaceholder]}>
+              <Ico d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.66-.9l.82-1.2A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" s={20} c={C.muted} />
+            </View>
+          )}
+          {selectedProducts.has(p.id!) && <View style={s.selectCheckmarkSmall} />}
         </View>
-        {!p.published && <View style={s.draftBadge}><Text style={s.draftText}>Brouillon</Text></View>}
-      </View>
-      <Text style={s.productName} numberOfLines={2}>{p.nom}</Text>
-      <View style={s.cardFooter}>
-        <Text style={s.productPrice}>{(p.prix / 1000).toFixed(0)}k F</Text>
-        <TouchableOpacity onPress={() => handleEditProduct(p)}>
-          <Ico d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" s={16} c={C.accent} />
-        </TouchableOpacity>
+        <View style={s.cardContent}>
+          <Text style={s.productName} numberOfLines={2}>{p.nom}</Text>
+          <Text style={s.productSku}>{p.sku || 'N/A'}</Text>
+          <View style={s.cardFooter}>
+            <View style={s.priceStockRow}>
+              <Text style={s.productPrice}>{(p.prix / 1000).toFixed(0)}k F</Text>
+              <View style={[s.stockBadgeSmall, { backgroundColor: p.stock === 0 ? C.danger : p.stock < 10 ? C.warning : C.success }]}>
+                <Text style={s.stockTextSmall}>{p.stock}</Text>
+              </View>
+            </View>
+            {!p.published && <View style={s.draftBadgeSmall}><Text style={s.draftTextSmall}>Brouillon</Text></View>}
+            <TouchableOpacity style={s.editBtn} onPress={() => handleEditProduct(p)}>
+              <Ico d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" s={16} c={C.accent} />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -263,12 +274,22 @@ const ProductsManagerScreen: React.FC = () => {
     <View style={s.root}>
       {/* Header */}
       <View style={s.header}>
-        <View>
-          <Text style={s.title}>Produits</Text>
-          <Text style={s.subtitle}>{filtered.length} de {allProducts.length}</Text>
+        <View style={s.headerLeft}>
+          <Text style={s.title}>Gestion des produits</Text>
+          <Text style={s.subtitle}>{filtered.length} de {allProducts.length} produits</Text>
+          <View style={s.statsRow}>
+            <View style={s.statChip}>
+              <Text style={s.statLabel}>Publiés</Text>
+              <Text style={s.statValue}>{allProducts.filter(p => p.published).length}</Text>
+            </View>
+            <View style={[s.statChip, s.statChipWarning]}>
+              <Text style={s.statLabel}>Stock faible</Text>
+              <Text style={s.statValue}>{allProducts.filter(p => p.stock < 10).length}</Text>
+            </View>
+          </View>
         </View>
         <TouchableOpacity style={s.addBtn} onPress={handleAddProduct}>
-          <Ico d="M12 5v14m-7-7h14" s={20} c="#fff" />
+          <Ico d="M12 5v14m-7-7h14" s={22} c="#fff" />
           <Text style={s.addBtnText}>Nouveau</Text>
         </TouchableOpacity>
       </View>
@@ -402,11 +423,17 @@ const ProductEditor: React.FC<ProductEditorProps> = ({ product, categories, onSa
 
 const s = StyleSheet.create<any>({
   root: { flex: 1, backgroundColor: C.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
-  title: { fontSize: 20, fontWeight: '800', color: C.text },
-  subtitle: { fontSize: 12, color: C.muted, marginTop: 2 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.accent, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  addBtnText: { color: '#fff', fontWeight: '600', fontSize: 12 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
+  headerLeft: { flex: 1 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, color: C.muted, marginTop: 2 },
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  statChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.success + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: C.success + '30' },
+  statChipWarning: { backgroundColor: C.warning + '15', borderColor: C.warning + '30' },
+  statLabel: { fontSize: 11, fontWeight: '600', color: C.textMid, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue: { fontSize: 13, fontWeight: '800', color: C.text },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accent, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, shadowColor: C.accent, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6 },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, marginHorizontal: 16, marginVertical: 8, paddingHorizontal: 12, height: 40, borderRadius: 8, borderWidth: 1, borderColor: C.border },
   searchInput: { flex: 1, fontSize: 14, color: C.text },
   filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
@@ -422,18 +449,24 @@ const s = StyleSheet.create<any>({
   bulkDeleteText: { fontSize: 12, color: C.danger, fontWeight: '600' },
   content: { paddingHorizontal: 8, paddingVertical: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  card: { width: '32%', backgroundColor: C.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
+  card: { width: '32%', backgroundColor: C.surface, borderRadius: 12, overflow: 'hidden', borderWidth: 1.5, borderColor: C.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, minHeight: 100 },
   cardSelected: { borderColor: C.accent, borderWidth: 2 },
-  cardImage: { width: '100%', aspectRatio: 1, backgroundColor: C.bg, position: 'relative' },
-  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  selectCheckmark: { position: 'absolute', top: 0, right: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255,107,53,0.2)', borderRadius: 8 },
-  stockBadge: { position: 'absolute', top: 6, right: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, minWidth: 28 },
-  stockText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  draftBadge: { position: 'absolute', top: 6, left: 6, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 3 },
-  draftText: { color: '#fff', fontSize: 9, fontWeight: '600' },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 8 },
-  productName: { fontSize: 12, fontWeight: '600', color: C.text },
-  productPrice: { fontSize: 13, fontWeight: '700', color: C.accent },
+  cardRow: { flexDirection: 'row', padding: 10, minHeight: 100 },
+  thumbnail: { width: 80, height: 80, borderRadius: 8, overflow: 'hidden', backgroundColor: '#E5E7EB', marginRight: 10, flexShrink: 0, borderWidth: 1, borderColor: '#D1D5DB' },
+  thumbnailImage: { width: 80, height: 80, backgroundColor: '#E5E7EB' },
+  thumbnailPlaceholder: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E7EB' },
+  selectCheckmarkSmall: { position: 'absolute', top: 0, right: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255,107,53,0.2)', borderRadius: 8 },
+  cardContent: { flex: 1, justifyContent: 'space-between' },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  priceStockRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  productName: { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 2 },
+  productSku: { fontSize: 11, color: C.muted, fontWeight: '500', marginBottom: 4 },
+  productPrice: { fontSize: 14, fontWeight: '800', color: C.accent },
+  stockBadgeSmall: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, minWidth: 24 },
+  stockTextSmall: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  draftBadgeSmall: { backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4, marginRight: 6 },
+  draftTextSmall: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  editBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: C.accent + '15', alignItems: 'center', justifyContent: 'center' },
   listRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: C.border },
   listRowSelected: { backgroundColor: C.accentSoft, borderColor: C.accent, borderWidth: 2 },
   checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },

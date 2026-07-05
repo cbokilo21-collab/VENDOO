@@ -136,21 +136,21 @@ const BuyerTutorialScreen: React.FC = () => {
         toValue: 0,
         duration: 600,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(scaleAnim, {
         toValue: 1,
         duration: 500,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
 
   const goTo = (idx: number) => {
     Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
-      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: false }),
     ]).start();
     setStep(idx);
   };

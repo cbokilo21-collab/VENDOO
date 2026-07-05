@@ -207,7 +207,6 @@ const AdminDashboard: React.FC = () => {
               name={user?.displayName || user?.email?.split('@')[0] || 'Admin'} 
               gender="male" 
               size={56} 
-              showVerified={false} 
             />
           </TouchableOpacity>
           <View style={s.headerText}>

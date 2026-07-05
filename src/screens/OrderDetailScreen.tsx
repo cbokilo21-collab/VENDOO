@@ -74,9 +74,7 @@ const OrderDetailScreen: React.FC = () => {
     );
   };
 
-  const items: any[] = order.items ?? [
-    { nom: 'Article #1', quantity: 1, prix: order.montant ?? order.total ?? 0, emoji: '🛍️' },
-  ];
+  const items: any[] = order.items ?? [];
   const total = order.total ?? order.montant ?? 0;
   const orderNum = order.orderNumber ?? order.id ?? '#—';
   const clientName = order.client ?? order.customerName ?? '—';

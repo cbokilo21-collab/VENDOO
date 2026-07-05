@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch, Dimensions, Alert, KeyboardAvoidingView, Platform, Animated, Easing, Image } from 'react-native';
-import { signOut, updateProfile } from 'firebase/auth';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, Switch, Dimensions, KeyboardAvoidingView, Platform, Animated, Easing, Image } from 'react-native';
+import { signOut, updateProfile, reload } from 'firebase/auth';
+import { onSnapshot, doc, getFirestore } from 'firebase/firestore';
 import { auth } from '../services/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useDialog } from '../contexts/DialogContext';
 import { FirestoreService } from '../services/firestoreService';
+import { StorageService } from '../services/storageService';
 import BottomNavigation from '../components/BottomNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import LanguageSelector from '../components/LanguageSelector';
@@ -70,14 +73,14 @@ const AnimatedCard: React.FC<{ children: React.ReactNode; delay?: number; style?
         duration: 600,
         delay,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(animOpacity, {
         toValue: 1,
         duration: 500,
         delay,
         easing: Easing.ease,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -104,12 +107,37 @@ const SettingsScreen: React.FC = () => {
   const { boutiqueData, setBoutiqueData } = useBoutique();
   const { user, userType } = useAuth();
   const { t } = useLanguage();
+  const dialog = useDialog();
   const isDesktop = Dimensions.get('window').width >= 1024;
   const [boutiqueName, setBoutiqueName] = useState(boutiqueData.nom);
   const [boutiqueDescription, setBoutiqueDescription] = useState(boutiqueData.description);
   const [boutiqueLogo, setBoutiqueLogo] = useState(boutiqueData.logo);
   const [profilePhoto, setProfilePhoto] = useState(user?.photoURL || '');
   const [displayName, setDisplayName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
+
+  // Real-time listener for user document for instant photo updates
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getFirestore();
+    const userRef = doc(db, 'users', user.uid);
+    
+    const unsubscribe = onSnapshot(userRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        if (userData?.photoURL) {
+          setProfilePhoto(userData.photoURL);
+        }
+        if (userData?.displayName) {
+          setDisplayName(userData.displayName);
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to user document:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
   const [website, setWebsite] = useState(boutiqueData.website);
   const [instagram, setInstagram] = useState(boutiqueData.instagram);
   const [facebook, setFacebook] = useState(boutiqueData.facebook);
@@ -126,6 +154,9 @@ const SettingsScreen: React.FC = () => {
   const [notifAI, setNotifAI]           = useState(false);
   const [autoShip, setAutoShip]         = useState(false);
   const [twoFA, setTwoFA]               = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [showSuccess, setShowSuccess]   = useState(false);
+  const successAnim = useRef(new Animated.Value(0)).current;
 
   const pickImage = async (isProfile: boolean = false) => {
     try {
@@ -145,7 +176,7 @@ const SettingsScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert(t('common.error'), t('settings.imageError'));
+      dialog.showError(t('settings.imageError'), t('common.error'));
     }
   };
 
@@ -164,9 +195,7 @@ const SettingsScreen: React.FC = () => {
   }, [boutiqueData]);
 
   const handleSave = async () => {
-    console.log('handleSave called');
-    console.log('displayName:', displayName);
-    console.log('user.displayName:', user?.displayName);
+    setSaving(true);
     
     setBoutiqueData({
       nom: boutiqueName,
@@ -181,27 +210,68 @@ const SettingsScreen: React.FC = () => {
       timezone: timezone,
     });
 
-    // Save display name to Firestore and Firebase Auth
-    if (user && displayName !== user.displayName) {
+    if (user) {
       try {
-        console.log('Updating display name in Firestore...');
-        // Update Firestore users collection using set with merge to create if not exists
-        await FirestoreService.set('users', user.uid, { displayName }, true);
-        console.log('Firestore update successful');
-        
-        console.log('Updating Firebase Auth displayName...');
-        // Update Firebase Auth displayName
-        await updateProfile(user, { displayName });
-        console.log('Firebase Auth update successful');
-        
-        Alert.alert(t('common.success'), 'Nom mis à jour avec succès');
+        const updates: any = {};
+        let needsUpdate = false;
+
+        if (displayName !== user.displayName) {
+          updates.displayName = displayName;
+          needsUpdate = true;
+        }
+
+        if (profilePhoto && profilePhoto !== user.photoURL) {
+          const storageUrl = await StorageService.uploadProfilePhoto(user.uid, profilePhoto);
+          updates.photoURL = storageUrl;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          // Execute Firestore and Auth updates in parallel for speed
+          const [firestoreUpdate, authUpdate] = await Promise.allSettled([
+            FirestoreService.set('users', user.uid, updates, true),
+            updateProfile(user, { 
+              displayName: updates.displayName || user.displayName,
+              photoURL: updates.photoURL || user.photoURL
+            })
+          ]);
+
+          if (firestoreUpdate.status === 'rejected') {
+            throw firestoreUpdate.reason;
+          }
+          if (authUpdate.status === 'rejected') {
+            throw authUpdate.reason;
+          }
+
+          await reload(user);
+        }
+
+        // Show animated success message
+        setShowSuccess(true);
+        Animated.timing(successAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+
+        setTimeout(() => {
+          Animated.timing(successAnim, {
+            toValue: 0,
+            duration: 250,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }).start(() => setShowSuccess(false));
+        }, 2000);
+
       } catch (error) {
-        console.error('Error updating display name:', error);
-        Alert.alert(t('common.error'), 'Erreur lors de la mise à jour du nom: ' + (error as any).message);
+        console.error('Error updating profile:', error);
+        dialog.showError('Erreur lors de la mise à jour du profil: ' + (error as any).message, t('common.error'));
+      } finally {
+        setSaving(false);
       }
     } else {
-      console.log('No display name change needed');
-      Alert.alert(t('common.success'), t('settings.saved'));
+      setSaving(false);
     }
   };
   const handleLogout = async () => { try { await signOut(auth); } catch {} };
@@ -233,10 +303,25 @@ const SettingsScreen: React.FC = () => {
           <Text style={s.pageTitle}>{t('settings.title')}</Text>
           <Text style={s.pageSubtitle}>{t('settings.subtitle')}</Text>
         </View>
-        <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Text style={s.saveBtnText}>{t('settings.save')}</Text>
+        <TouchableOpacity 
+          style={[s.saveBtn, saving && s.saveBtnDisabled]} 
+          onPress={handleSave} 
+          activeOpacity={0.85}
+          disabled={saving}
+        >
+          <Text style={s.saveBtnText}>{saving ? 'Sauvegarde...' : t('settings.save')}</Text>
         </TouchableOpacity>
       </AnimatedCard>
+
+      {/* Animated Success Message */}
+      {showSuccess && (
+        <Animated.View style={[s.successBanner, { opacity: successAnim, transform: [{ translateY: successAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] }]}>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.success} strokeWidth={2.5}>
+            <Path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+          </Svg>
+          <Text style={s.successText}>{t('settings.saved')}</Text>
+        </Animated.View>
+      )}
 
       {/* Profile */}
       <AnimatedCard delay={50} style={s.card}>
@@ -434,7 +519,7 @@ const SettingsScreen: React.FC = () => {
         <TouchableOpacity style={s.dangerBtn} onPress={handleLogout} activeOpacity={0.85}>
           <Text style={s.dangerBtnText}>{t('settings.logout')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.dangerBtnGhost} onPress={() => Alert.alert(t('settings.warning'), t('settings.deleteAccountConfirm'))} activeOpacity={0.85}>
+        <TouchableOpacity style={s.dangerBtnGhost} onPress={() => dialog.showWarning(t('settings.deleteAccountConfirm'), t('settings.warning'))} activeOpacity={0.85}>
           <Text style={s.dangerBtnGhostText}>{t('settings.deleteAccount')}</Text>
         </TouchableOpacity>
       </AnimatedCard>
@@ -480,7 +565,10 @@ const s = StyleSheet.create({
   pageTitle:    { fontSize: 24, fontWeight: '800', color: C.textDark, marginBottom: 3 },
   pageSubtitle: { fontSize: 14, color: C.textLight },
   saveBtn:      { backgroundColor: C.accent, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 9 },
+  saveBtnDisabled: { opacity: 0.6 },
   saveBtnText:  { color: C.white, fontSize: 13, fontWeight: '700' },
+  successBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.success + '15', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, marginBottom: 18, borderWidth: 1, borderColor: C.success + '30' },
+  successText: { fontSize: 14, fontWeight: '600', color: C.success },
   mobileHeader: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
   mobileTitle:  { fontSize: 22, fontWeight: '800', color: C.textDark },
 

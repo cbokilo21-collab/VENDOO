@@ -57,7 +57,7 @@ export class FirestoreService {
       const docRef = doc(db, collectionName, docId);
       const snapshot = await getDoc(docRef);
       if (!snapshot.exists()) return null;
-      return { id: snapshot.id, ...snapshot.data() } as T;
+      return { ...snapshot.data(), id: snapshot.id } as T;
     } catch (error) {
       console.error(`Firestore get error (${collectionName}/${docId}):`, error);
       throw error;
@@ -74,7 +74,7 @@ export class FirestoreService {
     try {
       const q = query(collection(db, collectionName), ...constraints);
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
     } catch (error) {
       console.error(`Firestore query error (${collectionName}):`, error);
       throw error;
@@ -89,7 +89,7 @@ export class FirestoreService {
   ): Promise<T[]> {
     try {
       const snapshot = await getDocs(collection(db, collectionName));
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
     } catch (error) {
       console.error(`Firestore getAll error (${collectionName}):`, error);
       throw error;
@@ -143,7 +143,7 @@ export class FirestoreService {
         if (!snapshot.exists()) {
           callback(null);
         } else {
-          callback({ id: snapshot.id, ...snapshot.data() } as T);
+          callback({ ...snapshot.data(), id: snapshot.id } as T);
         }
       },
       error => {
@@ -166,7 +166,7 @@ export class FirestoreService {
     return onSnapshot(
       q,
       snapshot => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
         callback(data);
       },
       error => {

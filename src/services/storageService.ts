@@ -167,6 +167,37 @@ export class StorageService {
       throw new Error('Échec de l\'upload du logo');
     }
   }
+
+  /**
+   * Upload la photo de profil utilisateur
+   * @param userId - ID de l'utilisateur
+   * @param uri - URI de l'image locale
+   * @returns URL publique de la photo uploadée
+   */
+  static async uploadProfilePhoto(userId: string, uri: string): Promise<string> {
+    try {
+      const timestamp = Date.now();
+      const fileName = `profile_${timestamp}.jpg`;
+      const storagePath = `profiles/${userId}/${fileName}`;
+      
+      const storageRef = ref(storage, storagePath);
+      
+      let blob: Blob;
+      if (Platform.OS === 'web') {
+        blob = await this.compressImage(uri, 400, 0.8);
+      } else {
+        blob = await this.uriToBlob(uri);
+      }
+      
+      const snapshot = await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+      throw new Error('Échec de l\'upload de la photo de profil');
+    }
+  }
   
   /**
    * Convertit une URI en Blob (helper pour React Native)

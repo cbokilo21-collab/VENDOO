@@ -24,6 +24,15 @@ const CHART_W = Math.min(SW - 56, 560);
 
 // ─── Bar chart ────────────────────────────────────────────────────────────────
 const BarChart: React.FC<{ data: { label: string; value: number; color: string }[]; height?: number }> = ({ data, height = 160 }) => {
+  // Return empty state if no data
+  if (!data || data.length === 0) {
+    return (
+      <View style={{ height: height + 28, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 12, color: C.textLight }}>Aucune donnée</Text>
+      </View>
+    );
+  }
+
   const anim = useRef(new Animated.Value(0)).current;
   const max  = Math.max(...data.map(d => d.value));
   const barW = (CHART_W - 32) / data.length - 10;
@@ -75,6 +84,15 @@ const BarChart: React.FC<{ data: { label: string; value: number; color: string }
 
 // ─── Line chart (SVG path) ────────────────────────────────────────────────────
 const LineChart: React.FC<{ data: number[]; labels: string[]; color: string; height?: number }> = ({ data, labels, color, height = 120 }) => {
+  // Return empty state if no data
+  if (!data || data.length === 0) {
+    return (
+      <View style={{ height: height + 28, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 12, color: C.textLight }}>Aucune donnée</Text>
+      </View>
+    );
+  }
+
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -127,6 +145,20 @@ const DonutChart: React.FC<{ segments: { label: string; value: number; color: st
   const SIZE  = 120;
   const R     = 46;
   const CX = SIZE / 2, CY = SIZE / 2;
+
+  // Return empty state if no data
+  if (total === 0) {
+    return (
+      <View style={{ alignItems: 'center', gap: 16 }}>
+        <Svg width={SIZE} height={SIZE}>
+          <Circle cx={CX} cy={CY} r={R} fill={C.bg} stroke={C.border} strokeWidth={2}/>
+          <Circle cx={CX} cy={CY} r={28} fill={C.white}/>
+        </Svg>
+        <Text style={{ fontSize: 12, color: C.textLight }}>Aucune donnée</Text>
+      </View>
+    );
+  }
+
   let angle = -90;
 
   const arcs = segments.map(seg => {

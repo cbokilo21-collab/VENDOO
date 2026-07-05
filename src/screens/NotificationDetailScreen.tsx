@@ -78,7 +78,19 @@ const NotifIcon: React.FC<{ type: NotifType; color: string }> = ({ type, color }
 const NotificationDetailScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<DetailRouteProp>();
-  const { notification } = route.params;
+  const { notification } = route.params || {};
+  
+  if (!notification) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 16, color: '#374151' }}>Notification non fournie</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12, backgroundColor: '#FF6B35', borderRadius: 8 }}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Retour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  
   const cfg = typeConfig[notification.type as NotifType];
 
   console.log('NotificationDetailScreen loaded:', notification);

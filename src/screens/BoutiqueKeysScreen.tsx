@@ -64,25 +64,25 @@ const BoutiqueKeysScreen: React.FC = () => {
   useEffect(() => {
     // Sequence: key pops in, then wobble, then content fades
     Animated.sequence([
-      Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 5, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 5, useNativeDriver: false }),
       Animated.sequence([
-        Animated.timing(rotateAnim, { toValue: 1, duration: 150, easing: Easing.ease, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: -1, duration: 200, easing: Easing.ease, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: 0.5, duration: 150, easing: Easing.ease, useNativeDriver: true }),
-        Animated.timing(rotateAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+        Animated.timing(rotateAnim, { toValue: 1, duration: 150, easing: Easing.ease, useNativeDriver: false }),
+        Animated.timing(rotateAnim, { toValue: -1, duration: 200, easing: Easing.ease, useNativeDriver: false }),
+        Animated.timing(rotateAnim, { toValue: 0.5, duration: 150, easing: Easing.ease, useNativeDriver: false }),
+        Animated.timing(rotateAnim, { toValue: 0, duration: 100, useNativeDriver: false }),
       ]),
     ]).start();
 
     Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, delay: 500, easing: Easing.ease, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 600, delay: 500, easing: Easing.ease, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, delay: 500, easing: Easing.ease, useNativeDriver: false }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, delay: 500, easing: Easing.ease, useNativeDriver: false }),
     ]).start();
 
     // Looping sparkle
     Animated.loop(
       Animated.sequence([
-        Animated.timing(sparkAnim, { toValue: 1, duration: 1200, easing: Easing.ease, useNativeDriver: true }),
-        Animated.timing(sparkAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+        Animated.timing(sparkAnim, { toValue: 1, duration: 1200, easing: Easing.ease, useNativeDriver: false }),
+        Animated.timing(sparkAnim, { toValue: 0, duration: 600, useNativeDriver: false }),
       ])
     ).start();
   }, []);

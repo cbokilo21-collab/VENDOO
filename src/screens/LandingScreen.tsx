@@ -50,13 +50,13 @@ const PulseAnimation = ({ children, style }: any) => {
           toValue: 1.05,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(scaleAnim, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     );
@@ -80,7 +80,7 @@ const ShimmerEffect = ({ style, children }: any) => {
         toValue: 1,
         duration: 2000,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: false,
       })
     ).start();
   }, []);
@@ -120,13 +120,13 @@ const RotateIn = ({ children, delay = 0, style }: any) => {
           toValue: 1,
           duration: 800,
           easing: Easing.out(Easing.back(1.7)),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           friction: 7,
           tension: 40,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
@@ -154,7 +154,7 @@ const BounceIn = ({ children, delay = 0, style }: any) => {
         toValue: 1,
         friction: 3,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -178,13 +178,13 @@ const FadeInUp = ({ children, delay = 0, style }: any) => {
           toValue: 1,
           duration: 800,
           easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(translateYAnim, {
           toValue: 0,
           duration: 800,
           easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
@@ -385,21 +385,21 @@ function AnimatedAdvantageCard({ advantage, index }: { advantage: any; index: nu
         toValue: 1,
         delay: index * 100,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         delay: index * 100,
         friction: 7,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         delay: index * 100,
         friction: 7,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [index, fadeAnim, slideAnim, scaleAnim]);
@@ -436,12 +436,12 @@ function FloatingAnimation({ children }: { children: React.ReactNode }) {
         Animated.timing(translateY, {
           toValue: -10,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(translateY, {
           toValue: 0,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     ).start();
@@ -500,21 +500,21 @@ function AnimatedReveal({ index = 0, style, children }: { index?: number; style?
         toValue: 1,
         delay: index * 120,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         delay: index * 120,
         friction: 8,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         delay: index * 120,
         friction: 8,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [index, fadeAnim, slideAnim, scaleAnim]);
@@ -573,14 +573,14 @@ export default function LandingScreen() {
         toValue: 1,
         duration: 1000,
         delay: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(heroTranslateY, {
         toValue: 0,
         delay: 300,
         friction: 8,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [heroOpacity, heroTranslateY]);

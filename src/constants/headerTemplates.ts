@@ -1,0 +1,358 @@
+export interface HeaderTemplate {
+  id: string;
+  name: string;
+  description: string;
+  preview: string;
+  structure: {
+    type: 'classic' | 'modern' | 'minimal' | 'hero' | 'split' | 'video' | 'centered' | 'overlay' | 'sticky' | 'transparent';
+    hasLogo: boolean;
+    hasNavigation: boolean;
+    hasSearch: boolean;
+    hasCart: boolean;
+    hasUser: boolean;
+    hasCTA: boolean;
+    hasSocial: boolean;
+    layout: 'horizontal' | 'vertical' | 'grid';
+  };
+  customizable: {
+    logo: boolean;
+    title: boolean;
+    subtitle: boolean;
+    backgroundImage: boolean;
+    videoUrl: boolean;
+    colors: boolean;
+    fonts: boolean;
+    spacing: boolean;
+  };
+}
+
+export const HEADER_TEMPLATES: HeaderTemplate[] = [
+  {
+    id: 'classic',
+    name: 'Classique',
+    description: 'Header traditionnel avec logo centré et navigation',
+    preview: '📋',
+    structure: {
+      type: 'classic',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'modern',
+    name: 'Moderne',
+    description: 'Design épuré avec logo à gauche et navigation minimaliste',
+    preview: '🎨',
+    structure: {
+      type: 'modern',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: true,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'minimal',
+    name: 'Minimaliste',
+    description: 'Ultra épuré avec seulement logo et menu hamburger',
+    preview: '✨',
+    structure: {
+      type: 'minimal',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: false,
+      hasCart: true,
+      hasUser: false,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'hero',
+    name: 'Hero',
+    description: 'Header plein écran avec image de fond et CTA',
+    preview: '🖼️',
+    structure: {
+      type: 'hero',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: false,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: true,
+      hasSocial: true,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: true,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'split',
+    name: 'Split',
+    description: 'Logo et navigation séparés de chaque côté',
+    preview: '↔️',
+    structure: {
+      type: 'split',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'video',
+    name: 'Vidéo',
+    description: 'Header avec vidéo de fond en arrière-plan',
+    preview: '🎬',
+    structure: {
+      type: 'video',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: false,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: true,
+      hasSocial: true,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: true,
+      backgroundImage: true,
+      videoUrl: true,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'centered',
+    name: 'Centré',
+    description: 'Logo et navigation centrés verticalement',
+    preview: '🎯',
+    structure: {
+      type: 'centered',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'overlay',
+    name: 'Overlay',
+    description: 'Header transparent qui se superpose à l\'image',
+    preview: '🔲',
+    structure: {
+      type: 'overlay',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: false,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: true,
+      hasSocial: true,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: true,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'sticky',
+    name: 'Sticky',
+    description: 'Header fixe qui reste visible au scroll',
+    preview: '📌',
+    structure: {
+      type: 'sticky',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'transparent',
+    name: 'Transparent',
+    description: 'Header invisible qui devient visible au scroll',
+    preview: '👻',
+    structure: {
+      type: 'transparent',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: false,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'mega-menu',
+    name: 'Mega Menu',
+    description: 'Navigation avec mega menu déroulant',
+    preview: '📚',
+    structure: {
+      type: 'classic',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: true,
+      hasSocial: false,
+      layout: 'horizontal',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+  {
+    id: 'sidebar',
+    name: 'Sidebar',
+    description: 'Navigation verticale sur le côté gauche',
+    preview: '📐',
+    structure: {
+      type: 'modern',
+      hasLogo: true,
+      hasNavigation: true,
+      hasSearch: true,
+      hasCart: true,
+      hasUser: true,
+      hasCTA: false,
+      hasSocial: false,
+      layout: 'vertical',
+    },
+    customizable: {
+      logo: true,
+      title: true,
+      subtitle: false,
+      backgroundImage: true,
+      videoUrl: false,
+      colors: true,
+      fonts: true,
+      spacing: true,
+    },
+  },
+];
+
+export const getHeaderTemplateById = (id: string): HeaderTemplate | undefined => {
+  return HEADER_TEMPLATES.find(t => t.id === id);
+};

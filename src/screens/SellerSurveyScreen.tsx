@@ -10,7 +10,18 @@ const SellerSurveyScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
-  const { storeId, storeName } = route.params as { storeId: string; storeName: string };
+  const { storeId, storeName } = (route.params as { storeId?: string; storeName?: string }) || {};
+  
+  if (!storeId) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 16, color: '#374151' }}>Store ID non fourni</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12, backgroundColor: '#FF6B35', borderRadius: 8 }}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Retour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   
   const [surveyType, setSurveyType] = useState<'quality' | 'service' | 'pricing' | 'overall'>('overall');
   const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
@@ -80,14 +91,14 @@ const SellerSurveyScreen: React.FC = () => {
     try {
       const responseArray = Object.values(responses);
       const score = SurveyService.calculateOverallScore(responseArray);
-      const analysis = SurveyService.generateAIAnalysis(responseArray, storeName);
+      const analysis = SurveyService.generateAIAnalysis(responseArray, storeName || 'Boutique');
       const recommendations = SurveyService.generateAIRecommendations(responseArray, score);
 
       // Créer l'enquête
       await SurveyService.createSurvey({
         userId: user!.uid,
         storeId,
-        storeName,
+        storeName: storeName || 'Boutique',
         surveyType,
         responses: responseArray,
         overallScore: score,

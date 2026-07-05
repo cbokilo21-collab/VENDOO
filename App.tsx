@@ -6,6 +6,7 @@ import { BoutiqueProvider } from './src/contexts/BoutiqueContext';
 import { ProductsProvider } from './src/contexts/ProductsContext';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import { CurrencyProvider } from './src/contexts/CurrencyContext';
+import { DialogProvider } from './src/contexts/DialogContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
@@ -46,8 +47,10 @@ export default function App() {
           <AuthProvider>
             <BoutiqueProvider>
               <ProductsProvider>
-                <AppNavigator />
-                <StatusBar style="dark" />
+                <DialogProvider>
+                  <AppNavigator />
+                  <StatusBar style="dark" />
+                </DialogProvider>
               </ProductsProvider>
             </BoutiqueProvider>
           </AuthProvider>

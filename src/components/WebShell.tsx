@@ -61,6 +61,7 @@ const BUSINESS_GROUPS = [
       { route: 'Products',          label: 'sidebar.products',        d: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12l8.73-5.04M12 22V12' },
       { route: 'Orders',            label: 'sidebar.orders',       d: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 10h6M9 14h6' },
       { route: 'Customers',         label: 'sidebar.customers',         d: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+      { route: 'Messages',          label: 'nav.messages',             d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
     ],
   },
   {
@@ -76,7 +77,7 @@ const BUSINESS_GROUPS = [
   {
     label: 'sidebar.boutique',
     items: [
-      { route: 'OnlineStore',        label: 'sidebar.onlineStore', d: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z' },
+      { route: 'ThemeSelection',     label: 'sidebar.themeBuilder', d: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
       { route: 'BoutiqueAppearance', label: 'sidebar.appearance',        d: 'M2 13.5V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.5M12 2L2 7l10 5 10-5-10-5z' },
       { route: 'VendooShop',         label: 'sidebar.vendooShop',      d: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0' },
       { route: 'PaymentSettings',    label: 'sidebar.payments',        d: 'M1 4h22v16H1zM1 10h22' },
@@ -84,6 +85,12 @@ const BUSINESS_GROUPS = [
       { route: 'SEO',               label: 'sidebar.seo',              d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3 3H2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm6 0h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8V3z' },
       { route: 'Referral',          label: 'sidebar.referral',       d: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
       { route: 'Boost',             label: 'sidebar.boost',            d: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
+    ],
+  },
+  {
+    label: 'sidebar.ecommerceSite',
+    items: [
+      { route: 'ThemeSitePreview', label: 'sidebar.viewMySite', d: 'M1 12s4-8 11-8 11 8 11 8 11 8-4 8-11 8-11-8-11-8z' },
     ],
   },
   {

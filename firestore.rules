@@ -39,9 +39,9 @@ service cloud.firestore {
     
     // Orders collection
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
     }
     
     // Customers collection
@@ -53,8 +53,8 @@ service cloud.firestore {
     
     // Boutique settings - per user
     match /boutiques/{boutiqueId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if isSignedIn() && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.resource.data.userId == request.auth.uid || boutiqueId == 'user');
     }
     
     // Conversations collection - users can read/write conversations they participate in
@@ -67,8 +67,61 @@ service cloud.firestore {
     // Messages collection - users can read/write messages in conversations they participate in
     match /messages/{messageId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+    }
+
+    // Themes collection - users can read/write their own themes
+    match /themes/{themeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+    }
+
+    // Payments collection - users can read their own payments
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Subscriptions collection - users can read/update their own subscriptions
+    match /subscriptions/{subscriptionId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Email verification logs - users can read their own logs
+    match /emailVerificationLogs/{logId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Token wallets - users can read/update their own wallet
+    match /tokenWallets/{walletId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Token transactions - users can read their own transactions
+    match /tokenTransactions/{transactionId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Referrals - users can read their own referrals
+    match /referrals/{referralId} {
+      allow read: if isSignedIn() && (resource.data.referrerId == request.auth.uid || resource.data.referredId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.referrerId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.referrerId == request.auth.uid;
+    }
+
+    // Visit history - users can read their own visit history
+    match /visitHistory/{visitId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

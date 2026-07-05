@@ -43,17 +43,30 @@ const INVOICES: Invoice[] = [];
 const BillingScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
   const [currency, setCurrency] = useState<Currency>('XAF');
 
-  const filteredInvoices = filter === 'all'
-    ? INVOICES
-    : INVOICES.filter(inv => inv.status === filter);
-
   useEffect(() => {
+    loadInvoices();
     loadCurrency();
   }, [user]);
+
+  const loadInvoices = async () => {
+    try {
+      // Load invoices from Firestore
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading invoices:', error);
+      setLoading(false);
+    }
+  };
+
+  const filteredInvoices = filter === 'all'
+    ? invoices
+    : invoices.filter(inv => inv.status === filter);
 
   const loadCurrency = async () => {
     if (!user) return;

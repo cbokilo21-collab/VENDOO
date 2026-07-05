@@ -8,15 +8,18 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle, Defs, LinearGradient as SvgGrad, Stop } from 'react-native-svg';
 import { signOut } from 'firebase/auth';
+import { onSnapshot, doc, getFirestore } from 'firebase/firestore';
 import { auth } from '../services/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import BottomNavigation from '../components/BottomNavigation';
+import ModuleBar from '../components/ModuleBar';
 import { T, shadow } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useDashboardKPIs } from '../hooks/useRealtimeData';
 import { useLanguage } from '../contexts/LanguageContext';
+import { FirestoreService } from '../services/firestoreService';
 import { NotificationService } from '../services/notificationService';
 import { OrderService } from '../services/orderService';
 import VerifiedBadge from '../components/VerifiedBadge';
@@ -128,6 +131,28 @@ const BusinessDashboard: React.FC = () => {
   const [period, setPeriod] = useState<'Jour'|'Semaine'|'Mois'>('Mois');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(true);
+  const [profilePhoto, setProfilePhoto] = useState(user?.photoURL || '');
+
+  // Real-time listener for user document for instant photo updates
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getFirestore();
+    const userRef = doc(db, 'users', user.uid);
+    
+    const unsubscribe = onSnapshot(userRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        if (userData?.photoURL) {
+          setProfilePhoto(userData.photoURL);
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to user document:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   // Load real notifications
   useEffect(() => {
@@ -146,10 +171,6 @@ const BusinessDashboard: React.FC = () => {
     loadNotifications();
   }, [user?.uid]);
 
-  const greeting = (() => {
-    const h = new Date().getHours();
-    return h < 12 ? t('dashboard.goodMorning') : h < 18 ? t('dashboard.goodAfternoon') : t('dashboard.goodEvening');
-  })();
   const ownerName = (user?.displayName || user?.email?.split('@')[0] || 'Cyril')
     .replace(/^\w/, (c) => c.toUpperCase());
 
@@ -224,59 +245,50 @@ const BusinessDashboard: React.FC = () => {
       <View style={d.pageHead}>
         <View style={{ flex: 1 }}>
           <View style={d.headerBadgeContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('Settings' as any)} activeOpacity={0.7}>
-              <View style={d.headerAvatarContainer}>
-                <UserAvatar 
-                  name={ownerName} 
-                  gender="male" 
-                  size={48} 
-                  showVerified={false} 
-                />
-              </View>
-            </TouchableOpacity>
+            <View style={d.headerAvatarContainer}>
+              <UserAvatar 
+                imageUrl={profilePhoto}
+                name={ownerName} 
+                gender="male" 
+                size={56} 
+              />
+            </View>
             <View style={d.headerTextContainer}>
-              <Text style={d.greet}>{greeting}, {ownerName} 👋</Text>
-              <View style={d.proBadge}>
-                <Text style={d.proBadgeText}>PRO</Text>
+              <View style={d.nameRow}>
+                <Text style={d.greet}>{ownerName}</Text>
+                <VerifiedBadge size={18} color="#1DA1F2" />
+              </View>
+              <View style={d.statusRow}>
+                <View style={d.proBadge}>
+                  <Text style={d.proBadgeText}>PRO</Text>
+                </View>
+                <View style={d.onlineIndicator}>
+                  <View style={d.onlineDot} />
+                  <Text style={d.onlineText}>En ligne</Text>
+                </View>
               </View>
             </View>
           </View>
           <Text style={d.pageTitle}>{t('nav.home')}</Text>
+          <Text style={d.pageSubtitle}>Vue d'ensemble de votre activité commerciale</Text>
           <Text style={d.pageSub}>{boutiqueData.nom || 'Ma boutique'} · aperçu en temps réel</Text>
         </View>
         <View style={d.headActions}>
-          <View>
-            <TouchableOpacity style={d.bellBtn} onPress={() => setShowNotifs(v => !v)} activeOpacity={0.8}>
-              <Ic d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" s={19} c={T.textMid} w={1.9}/>
-              {unread > 0 && <View style={d.bellBadge}><Text style={d.bellBadgeTxt}>{unread}</Text></View>}
-            </TouchableOpacity>
-            {showNotifs && (
-              <View style={d.notifPanel}>
-                <View style={d.notifHead}>
-                  <Text style={d.notifTitle}>{t('nav.notifications')}</Text>
-                  <TouchableOpacity onPress={markAllRead}><Text style={d.notifMark}>{t('notifications.markAllRead')}</Text></TouchableOpacity>
-                </View>
-                {notifications.map((n: any) => {
-                  const isRead = readNotifs.has(n.id);
-                  const m = notifMeta(n.type);
-                  return (
-                    <TouchableOpacity key={n.id} style={d.notifRow}
-                      onPress={() => setReadNotifs(prev => new Set([...prev, n.id]))} activeOpacity={0.7}>
-                      <View style={[d.notifIcon, { backgroundColor: m.soft }]}><Ic d={m.d} s={14} c={m.c}/></View>
-                      <View style={{ flex:1 }}>
-                        <Text style={[d.notifMsg, isRead && { color:T.muted, fontWeight:'500' }]}>{n.title}</Text>
-                        <Text style={d.notifTime}>{formatRelativeTime(n.createdAt)}</Text>
-                      </View>
-                      {!isRead && <View style={d.notifDot}/>}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-          <TouchableOpacity style={d.cta} onPress={() => navigation.navigate('POS' as any)} activeOpacity={0.85}>
-            <Ic d="M12 5v14M5 12h14" s={17} c="#fff" w={2.4}/>
-            <Text style={d.ctaTxt}>Nouvelle vente</Text>
+          <TouchableOpacity style={d.bellBtn} onPress={() => navigation.navigate('Notifications' as any)} activeOpacity={0.8}>
+            <Ic d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" s={19} c={T.textMid} w={1.9}/>
+            {unread > 0 && <View style={d.bellBadge}><Text style={d.bellBadgeTxt}>{unread}</Text></View>}
+          </TouchableOpacity>
+          <TouchableOpacity style={[d.ctaCircle, { backgroundColor:T.surface, borderWidth:1, borderColor:T.border }]} onPress={() => { console.log('Navigating to Wallet'); navigation.navigate('Wallet' as any); }} activeOpacity={0.85}>
+            <Ic d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" s={20} c={T.violet} w={2.4}/>
+          </TouchableOpacity>
+          <TouchableOpacity style={[d.ctaCircle, { backgroundColor:T.surface, borderWidth:1, borderColor:T.border }]} onPress={() => { console.log('Navigating to PackSelection'); navigation.navigate('PackSelection' as any); }} activeOpacity={0.85}>
+            <Ic d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" s={20} c={T.success} w={2.4}/>
+          </TouchableOpacity>
+          <TouchableOpacity style={[d.ctaCircle, { backgroundColor:T.surface, borderWidth:1, borderColor:T.border }]} onPress={() => { console.log('Navigating to ThemeSelection'); navigation.navigate('ThemeSelection' as any); }} activeOpacity={0.85}>
+            <Ic d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" s={20} c={T.orange} w={2.4}/>
+          </TouchableOpacity>
+          <TouchableOpacity style={[d.ctaCircle, { backgroundColor:T.orange }]} onPress={() => navigation.navigate('POS' as any)} activeOpacity={0.85}>
+            <Ic d="M12 5v14M5 12h14" s={20} c="#fff" w={2.4}/>
           </TouchableOpacity>
         </View>
       </View>
@@ -296,7 +308,7 @@ const BusinessDashboard: React.FC = () => {
       )}
 
       {/* ── Revenue card ─────────────────────────────────────────────────── */}
-      <View style={d.card}>
+      <View style={[d.card, d.revenueCard]}>
         <View style={d.revTop}>
           <View>
             <Text style={d.revLabel}>Chiffre d'affaires · ce mois</Text>
@@ -317,7 +329,9 @@ const BusinessDashboard: React.FC = () => {
             ))}
           </View>
         </View>
-        <Sparkline h={isWeb ? 120 : 96} data={sparklineData}/>
+        <View style={d.chartContainer}>
+          <Sparkline h={isWeb ? 140 : 110} data={sparklineData}/>
+        </View>
         <View style={d.dayRow}>
           {getDays(t).map((day: string, i: number) => <Text key={i} style={d.dayLbl}>{day}</Text>)}
         </View>
@@ -326,12 +340,12 @@ const BusinessDashboard: React.FC = () => {
       {/* ── KPI grid ─────────────────────────────────────────────────────── */}
       <View style={d.kpiRow}>
         {kpiData.map(k => (
-          <View key={k.label} style={d.kpiCard}>
+          <TouchableOpacity key={k.label} style={d.kpiCard} activeOpacity={0.8}>
             <View style={d.kpiTop}>
-              <View style={[d.kpiIcon, { backgroundColor:k.tint }]}><Ic d={k.icon} s={18} c={k.ink} w={2}/></View>
+              <View style={[d.kpiIcon, { backgroundColor:k.tint }]}><Ic d={k.icon} s={20} c={k.ink} w={2.2}/></View>
               {k.trend ? (
                 <View style={d.kpiTrend}>
-                  <Ic d="M7 17L17 7M17 7H9M17 7v8" s={11} c={T.success} w={2.4}/>
+                  <Ic d="M7 17L17 7M17 7H9M17 7v8" s={12} c={T.success} w={2.4}/>
                   <Text style={d.kpiTrendTxt}>{k.trend}</Text>
                 </View>
               ) : null}
@@ -339,7 +353,8 @@ const BusinessDashboard: React.FC = () => {
             <Text style={d.kpiValue}>{k.value}</Text>
             <Text style={d.kpiLabel}>{k.label}</Text>
             <Text style={d.kpiSub}>{k.sub}</Text>
-          </View>
+            <View style={d.kpiDivider} />
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -404,6 +419,7 @@ const BusinessDashboard: React.FC = () => {
             { label:t('sidebar.analytics'), route:'Analytics', tint:T.successSoft, ink:T.success, icon:'M3 3v18h18M7 14l4-4 3 3 5-6' },
             { label:t('sidebar.marketing'), route:'Marketing', tint:T.warningSoft, ink:T.warning, icon:'M3 11l19-9-9 19-2-8-8-2z' },
             { label:t('sidebar.customers'),   route:'Customers', tint:T.violetSoft,  ink:T.violet,  icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+            { label:'Constructeur de thème', route:'ThemeSelection', tint:T.orangeSoft, ink:T.orange, icon:'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
           ].map(q => (
             <TouchableOpacity key={q.route} style={d.qItem}
               onPress={() => navigation.navigate(q.route as any)} activeOpacity={0.8}>
@@ -458,7 +474,7 @@ const BusinessDashboard: React.FC = () => {
             <Text style={d.logoutTxt}>Se déconnecter</Text>
           </TouchableOpacity>
         </ScrollView>
-        <BottomNavigation activeRoute="BusinessDashboard"/>
+        <ModuleBar activeRoute="BusinessDashboard"/>
       </View>
     );
   }
@@ -484,10 +500,15 @@ const d = StyleSheet.create({
   headerAvatarContainer: { marginRight: 4 },
   headerTextContainer: { flexDirection:'column', gap:4 },
   nameRow: { flexDirection:'row', alignItems:'center', gap:8 },
-  greet:       { fontSize:13, color:T.textSub, fontWeight:'600' },
+  statusRow: { flexDirection:'row', alignItems:'center', gap:8 },
+  greet:       { fontSize:15, color:T.textSub, fontWeight:'600' },
   proBadge:    { backgroundColor:T.orange, paddingHorizontal:8, paddingVertical:2, borderRadius:4 },
   proBadgeText:{ color:'#fff', fontSize:10, fontWeight:'bold' },
-  pageTitle:   { fontSize:26, fontWeight:'800', color:T.text, letterSpacing:-0.6 },
+  onlineIndicator: { flexDirection:'row', alignItems:'center', gap:4, backgroundColor:T.successSoft, paddingHorizontal:8, paddingVertical:2, borderRadius:4 },
+  onlineDot: { width:6, height:6, borderRadius:3, backgroundColor:T.success },
+  onlineText: { fontSize:10, fontWeight:'600', color:T.success },
+  pageTitle:   { fontSize:28, fontWeight:'800', color:T.text, letterSpacing:-0.6, marginTop:4 },
+  pageSubtitle: { fontSize:14, color:T.textMid, fontWeight:'500', marginTop:2 },
   pageSub:     { fontSize:13, color:T.muted, marginTop:3 },
   headActions: { flexDirection:'row', alignItems:'center', gap:10 },
   bellBtn:     { width:42, height:42, borderRadius:12, backgroundColor:T.surface, borderWidth:1, borderColor:T.border, alignItems:'center', justifyContent:'center', ...shadow.card },
@@ -495,6 +516,7 @@ const d = StyleSheet.create({
   bellBadgeTxt:{ color:'#fff', fontSize:9, fontWeight:'900' },
   cta:         { flexDirection:'row', alignItems:'center', gap:7, backgroundColor:T.orange, paddingHorizontal:16, height:42, borderRadius:12, shadowColor:T.orange, shadowOpacity:0.3, shadowRadius:12, shadowOffset:{width:0,height:4} },
   ctaTxt:      { color:'#fff', fontWeight:'700', fontSize:13.5 },
+  ctaCircle:   { width:52, height:52, borderRadius:26, alignItems:'center', justifyContent:'center', ...shadow.card },
 
   // Notif panel
   notifPanel:  { position:'absolute', top:50, right:0, width:320, backgroundColor:T.surface, borderRadius:16, borderWidth:1, borderColor:T.border, overflow:'hidden', ...shadow.pop, zIndex:50 },
@@ -516,15 +538,17 @@ const d = StyleSheet.create({
   card:        { backgroundColor:T.surface, borderRadius:16, padding:18, borderWidth:1, borderColor:T.border, ...shadow.card },
 
   // Revenue
-  revTop:      { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 },
-  revLabel:    { fontSize:12, color:T.textSub, fontWeight:'600', marginBottom:6 },
+  revenueCard: { borderWidth:2, borderColor:T.orange+'20' },
+  revTop:      { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 },
+  revLabel:    { fontSize:13, color:T.textSub, fontWeight:'600', marginBottom:6 },
   revAmtRow:   { flexDirection:'row', alignItems:'center', gap:10 },
-  revAmt:      { fontSize:28, fontWeight:'800', color:T.text, letterSpacing:-0.8 },
+  revAmt:      { fontSize:32, fontWeight:'800', color:T.text, letterSpacing:-0.8 },
   trendChip:   { flexDirection:'row', alignItems:'center', gap:3, backgroundColor:T.successSoft, paddingHorizontal:8, paddingVertical:4, borderRadius:8 },
   trendTxt:    { color:T.success, fontWeight:'800', fontSize:12 },
   periodTabs:  { flexDirection:'row', backgroundColor:T.page, borderRadius:10, padding:3, gap:2 },
   periodTab:   { paddingHorizontal:12, paddingVertical:6, borderRadius:8 },
   periodTabA:  { backgroundColor:T.surface, ...shadow.card },
+  chartContainer: { paddingHorizontal:4, paddingVertical:8 },
   periodTxt:   { fontSize:12, fontWeight:'600', color:T.textSub },
   periodTxtA:  { color:T.text, fontWeight:'700' },
   dayRow:      { flexDirection:'row', justifyContent:'space-between', marginTop:6, paddingHorizontal:4 },
@@ -537,9 +561,10 @@ const d = StyleSheet.create({
   kpiIcon:     { width:38, height:38, borderRadius:11, alignItems:'center', justifyContent:'center' },
   kpiTrend:    { flexDirection:'row', alignItems:'center', gap:2, backgroundColor:T.successSoft, paddingHorizontal:6, paddingVertical:3, borderRadius:7 },
   kpiTrendTxt: { color:T.success, fontWeight:'800', fontSize:10.5 },
-  kpiValue:    { fontSize:22, fontWeight:'800', color:T.text, letterSpacing:-0.6 },
-  kpiLabel:    { fontSize:12.5, color:T.textMid, fontWeight:'600', marginTop:3 },
+  kpiValue:    { fontSize:24, fontWeight:'800', color:T.text, letterSpacing:-0.6 },
+  kpiLabel:    { fontSize:13, color:T.textMid, fontWeight:'600', marginTop:4 },
   kpiSub:      { fontSize:11, color:T.muted, marginTop:2 },
+  kpiDivider:  { height:1, backgroundColor:T.divider, marginTop:12 },
 
   // Split
   splitRow:    { flexDirection: isWeb ? 'row' : 'column', gap:14 },
@@ -567,10 +592,10 @@ const d = StyleSheet.create({
   chipTxt:     { fontSize:11, fontWeight:'700' },
 
   // Quick actions
-  quickRow:    { flexDirection:'row', flexWrap:'wrap', gap:18, marginTop:16 },
-  qItem:       { alignItems:'center', gap:8, minWidth:60 },
-  qBtn:        { width:54, height:54, borderRadius:15, alignItems:'center', justifyContent:'center' },
-  qLabel:      { fontSize:11.5, color:T.textMid, fontWeight:'600', textAlign:'center' },
+  quickRow:    { flexDirection:'row', flexWrap:'wrap', gap:12, marginTop:16 },
+  qItem:       { alignItems:'center', gap:6, minWidth:55 },
+  qBtn:        { width:50, height:50, borderRadius:14, alignItems:'center', justifyContent:'center' },
+  qLabel:      { fontSize:11, color:T.textMid, fontWeight:'600', textAlign:'center' },
 
   // Logout (mobile)
   logout:      { flexDirection:'row', alignItems:'center', gap:8, paddingVertical:18, justifyContent:'center' },

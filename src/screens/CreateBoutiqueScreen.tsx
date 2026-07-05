@@ -485,7 +485,7 @@ const CreateBoutiqueScreen: React.FC = () => {
 
   const animateStep = (dir: 1 | -1) => {
     slideAnim.setValue(dir * 30);
-    Animated.timing(slideAnim, { toValue: 0, duration: 240, easing: Easing.ease, useNativeDriver: true }).start();
+    Animated.timing(slideAnim, { toValue: 0, duration: 240, easing: Easing.ease, useNativeDriver: false }).start();
   };
 
   const next = async () => {

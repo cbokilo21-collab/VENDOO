@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { StoreContactService } from '../services/storeContactService';
+import { BoutiqueService, Boutique } from '../services/boutiqueService';
 import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 
 const C = {
@@ -30,50 +31,6 @@ interface District {
   stores: Store[];
 }
 
-const DISTRICTS: District[] = [
-  {
-    id: '1',
-    name: 'Plateau',
-    stores: [
-      { id: '1', name: 'Boutique Élégance', category: 'Mode', rating: 4.8, reviews: 124, image: '', description: 'Mode haut de gamme', isOpen: true },
-      { id: '2', name: 'Tech Hub', category: 'Électronique', rating: 4.5, reviews: 89, image: '', description: 'Gadgets et accessoires', isOpen: true },
-      { id: '3', name: 'Bijoux Dorés', category: 'Bijoux', rating: 4.9, reviews: 67, image: '', description: 'Bijoux artisanaux', isOpen: false },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Yopougon',
-    stores: [
-      { id: '4', name: 'Style Urbain', category: 'Mode', rating: 4.3, reviews: 156, image: '', description: 'Streetwear et sneakers', isOpen: true },
-      { id: '5', name: 'Beauty Corner', category: 'Cosmétiques', rating: 4.6, reviews: 98, image: '', description: 'Produits de beauté', isOpen: true },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Cocody',
-    stores: [
-      { id: '6', name: 'Luxe Maison', category: 'Décoration', rating: 4.7, reviews: 45, image: '', description: 'Art de la maison', isOpen: true },
-      { id: '7', name: 'Sport Plus', category: 'Sport', rating: 4.4, reviews: 112, image: '', description: 'Équipements sportifs', isOpen: true },
-      { id: '8', name: 'Gourmet Store', category: 'Alimentation', rating: 4.8, reviews: 78, image: '', description: 'Produits gourmets', isOpen: true },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Marcory',
-    stores: [
-      { id: '9', name: 'Digital Shop', category: 'Électronique', rating: 4.2, reviews: 134, image: '', description: 'Smartphones et tech', isOpen: true },
-      { id: '10', name: 'Kids World', category: 'Enfants', rating: 4.5, reviews: 56, image: '', description: 'Vêtements et jouets', isOpen: false },
-    ],
-  },
-  {
-    id: '5',
-    name: 'Treichville',
-    stores: [
-      { id: '11', name: 'Auto Parts', category: 'Auto', rating: 4.1, reviews: 89, image: '', description: 'Pièces automobiles', isOpen: true },
-    ],
-  },
-];
-
 const MarketplaceScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -81,8 +38,57 @@ const MarketplaceScreen: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredDistricts = DISTRICTS.map(district => ({
+  // Load boutiques from Firestore and group by quartier
+  useEffect(() => {
+    const loadBoutiques = async () => {
+      try {
+        setLoading(true);
+        const boutiques = await BoutiqueService.getAll();
+        
+        // Map Boutique to Store and group by quartier
+        const quartierMap = new Map<string, Store[]>();
+        
+        boutiques.forEach((boutique: Boutique) => {
+          const store: Store = {
+            id: boutique.id || '',
+            name: boutique.nom,
+            category: boutique.secteur || 'Autre',
+            rating: 0, // Default rating - could be fetched from reviews
+            reviews: 0, // Default reviews - could be fetched from reviews
+            image: boutique.logo || '',
+            description: boutique.description,
+            isOpen: true, // Default to open - could be enhanced with actual hours
+          };
+          
+          const quartier = boutique.quartier || 'Autre';
+          if (!quartierMap.has(quartier)) {
+            quartierMap.set(quartier, []);
+          }
+          quartierMap.get(quartier)?.push(store);
+        });
+        
+        // Convert map to District array
+        const districtsArray: District[] = Array.from(quartierMap.entries()).map(([name, stores], index) => ({
+          id: index.toString(),
+          name,
+          stores,
+        }));
+        
+        setDistricts(districtsArray);
+      } catch (error) {
+        console.error('Error loading boutiques:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadBoutiques();
+  }, []);
+
+  const filteredDistricts = districts.map(district => ({
     ...district,
     stores: district.stores.filter(store =>
       store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -181,7 +187,12 @@ const MarketplaceScreen: React.FC = () => {
       </View>
 
       <ScrollView style={s.content}>
-        {filteredDistricts.length === 0 ? (
+        {loading ? (
+          <View style={s.loadingState}>
+            <ActivityIndicator size="large" color={C.orange} />
+            <Text style={s.loadingText}>Chargement des boutiques...</Text>
+          </View>
+        ) : filteredDistricts.length === 0 ? (
           <View style={s.emptyState}>
             <Text style={s.emptyStateText}>{t('marketplace.noStores')}</Text>
             <Text style={s.emptyStateSub}>{t('marketplace.noStoresDesc')}</Text>
@@ -228,7 +239,7 @@ const MarketplaceScreen: React.FC = () => {
                         selectedStore.id,
                         selectedStore.name,
                         selectedStore.category,
-                        selectedDistrict ? DISTRICTS.find(d => d.id === selectedDistrict)?.name || '' : ''
+                        selectedDistrict ? districts.find(d => d.id === selectedDistrict)?.name || '' : ''
                       );
                     } catch (error) {
                       console.error('Error recording contact:', error);
@@ -307,6 +318,9 @@ const s = StyleSheet.create({
   emptyState: { padding: 40, alignItems: 'center' },
   emptyStateText: { fontSize: 16, fontWeight: '800', color: C.textMid, marginBottom: 8 },
   emptyStateSub: { fontSize: 14, color: C.textLight },
+  
+  loadingState: { padding: 40, alignItems: 'center' },
+  loadingText: { fontSize: 14, color: C.textMid, marginTop: 12 },
   
   storeModalOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,

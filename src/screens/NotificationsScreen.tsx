@@ -118,36 +118,53 @@ const NotificationsScreen: React.FC = () => {
   const handleNotificationPress = async (notification: Notification) => {
     if (!notification.read) {
       await NotificationService.markAsRead(notification.id!);
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
       );
     }
 
+    // Route based on which screens actually exist in the current navigator,
+    // rather than the auth userType flag (which can lag behind on first load).
+    const routeNames: string[] = (navigation as any).getState?.()?.routeNames || [];
+    const isBuyerNav = routeNames.includes('OrderTracking');
+
     // Navigation basée sur le type de notification
-    if (notification.type === 'order' && notification.data?.orderId) {
-      (navigation as any).navigate('OrderTracking', { orderId: notification.data.orderId });
-    } else if (notification.type === 'message' && notification.data?.conversationId) {
-      // Créer la conversation si elle n'existe pas
-      const { conversationId, buyerId, buyerName, storeId, storeName } = notification.data;
-      if (buyerId && buyerName && storeId && storeName) {
+    if ((notification.type === 'order' || notification.type === 'delivery') && notification.data?.orderId) {
+      if (isBuyerNav) {
+        (navigation as any).navigate('OrderTracking', { orderId: notification.data.orderId });
+      } else {
         try {
-          const { MessagingService } = await import('../services/messagingService');
-          const existing = await MessagingService.getConversation(conversationId);
-          if (!existing) {
-            await MessagingService.createConversation({
-              buyerId,
-              buyerName,
-              storeId,
-              storeName,
-            });
+          const { OrderService } = await import('../services/orderService');
+          const order = await OrderService.getById(notification.data.orderId);
+          if (order) {
+            (navigation as any).navigate('OrderDetail', { order });
+          } else {
+            (navigation as any).navigate('Orders');
           }
         } catch (error) {
-          console.error('Error creating conversation from notification:', error);
+          console.error('Error opening order from notification:', error);
+          (navigation as any).navigate('Orders');
         }
       }
-      (navigation as any).navigate('Messages');
+    } else if (notification.type === 'message' && notification.data?.conversationId) {
+      const { conversationId, buyerId, buyerName, storeId, storeName } = notification.data;
+      try {
+        const { MessagingService } = await import('../services/messagingService');
+        let conversation = await MessagingService.getConversation(conversationId);
+        if (!conversation && buyerId && buyerName && storeId && storeName) {
+          conversation = await MessagingService.getOrCreateConversation(buyerId, buyerName, storeId, storeName);
+        }
+        if (conversation) {
+          (navigation as any).navigate('Conversation', { conversation });
+        } else {
+          (navigation as any).navigate('Messages');
+        }
+      } catch (error) {
+        console.error('Error opening conversation from notification:', error);
+        (navigation as any).navigate('Messages');
+      }
     } else if (notification.type === 'order') {
-      (navigation as any).navigate('MyOrders');
+      (navigation as any).navigate(isBuyerNav ? 'MyOrders' : 'Orders');
     }
   };
 

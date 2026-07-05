@@ -35,6 +35,7 @@ const BoutiqueCatalogScreen: React.FC = () => {
   const route = useRoute();
   const routeParams = route.params as { boutiqueId?: string } | undefined;
   console.log('BoutiqueCatalogScreen - routeParams:', routeParams);
+  console.log('BoutiqueCatalogScreen - rendering');
   const { products, loading } = useProducts();
   const { boutiqueData } = useBoutique();
   const [search, setSearch] = useState('');
@@ -46,6 +47,13 @@ const BoutiqueCatalogScreen: React.FC = () => {
   useEffect(() => {
     const loadBoutique = async () => {
       if (routeParams?.boutiqueId) {
+        // 'user' is a special ID for the user's own boutique - use BoutiqueContext
+        if (routeParams.boutiqueId === 'user') {
+          console.log('Using user boutique from context');
+          setExternalBoutiqueLoading(false);
+          return;
+        }
+
         console.log('Loading boutique with ID:', routeParams.boutiqueId);
         setExternalBoutiqueLoading(true);
         try {
@@ -71,14 +79,14 @@ const BoutiqueCatalogScreen: React.FC = () => {
 
   // Load products for the external boutique if boutiqueId is provided
   const { data: externalProducts, loading: externalLoading } = useRealtimeCollection<any>('products', {
-    enabled: !!routeParams?.boutiqueId,
-    constraints: routeParams?.boutiqueId ? [where('boutique_id', '==', routeParams.boutiqueId)] : [],
+    enabled: !!routeParams?.boutiqueId && routeParams.boutiqueId !== 'user',
+    constraints: routeParams?.boutiqueId && routeParams.boutiqueId !== 'user' ? [where('boutique_id', '==', routeParams.boutiqueId)] : [],
   });
 
   // Use external boutique data if provided, otherwise use user's boutique
-  const currentBoutique = externalBoutique || boutiqueData;
-  const currentProducts = routeParams?.boutiqueId ? externalProducts : products;
-  const currentLoading = routeParams?.boutiqueId ? (externalBoutiqueLoading || externalLoading) : loading;
+  const currentBoutique = (routeParams?.boutiqueId === 'user' || !routeParams?.boutiqueId) ? boutiqueData : externalBoutique;
+  const currentProducts = (routeParams?.boutiqueId === 'user' || !routeParams?.boutiqueId) ? products : externalProducts;
+  const currentLoading = (routeParams?.boutiqueId === 'user' || !routeParams?.boutiqueId) ? loading : (externalBoutiqueLoading || externalLoading);
 
   // Build category list from real products
   const categories = ['Tous', ...Array.from(new Set(currentProducts.map(p => p.categorie).filter(Boolean)))];

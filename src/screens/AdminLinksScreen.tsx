@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, StyleSheet, Text, ScrollView, TouchableOpacity,
   Alert, TextInput, Clipboard
@@ -32,15 +32,22 @@ interface AdminLink {
 
 const AdminLinksScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const [links, setLinks] = useState<AdminLink[]>([
-    {
-      id: '1',
-      name: 'Lien Admin Principal',
-      description: 'Accès direct au dashboard admin',
-      url: 'https://vendoo-67f37.web.app/admin/dashboard',
-      createdAt: '2024-01-15',
-    },
-  ]);
+  const [links, setLinks] = useState<AdminLink[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadLinks();
+  }, []);
+
+  const loadLinks = async () => {
+    try {
+      // Load links from Firestore
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading links:', error);
+      setLoading(false);
+    }
+  };
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newLinkName, setNewLinkName] = useState('');
   const [newLinkDesc, setNewLinkDesc] = useState('');

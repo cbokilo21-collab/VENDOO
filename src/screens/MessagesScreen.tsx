@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { onSnapshot, doc, getFirestore } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { MessagingService, Conversation } from '../services/messagingService';
 
@@ -21,6 +22,61 @@ const MessagesScreen: React.FC = () => {
   const { user, userType } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myPhoto, setMyPhoto] = useState(user?.photoURL || '');
+  const [partnerPhotos, setPartnerPhotos] = useState<Record<string, string>>({});
+
+  // Real-time listener for user profile photo
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getFirestore();
+    const userRef = doc(db, 'users', user.uid);
+    
+    const unsubscribe = onSnapshot(userRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        if (userData?.photoURL) {
+          setMyPhoto(userData.photoURL);
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to user document:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Real-time listeners for partner photos
+  useEffect(() => {
+    if (conversations.length === 0) return;
+
+    const unsubscribes: (() => void)[] = [];
+    const db = getFirestore();
+
+    conversations.forEach(conv => {
+      const partnerId = userType === 'buyer' ? conv.storeId : conv.buyerId;
+      if (!partnerId) return;
+
+      const partnerRef = doc(db, 'users', partnerId);
+      
+      const unsubscribe = onSnapshot(partnerRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const userData = docSnapshot.data();
+          if (userData?.photoURL) {
+            setPartnerPhotos(prev => ({ ...prev, [partnerId]: userData.photoURL }));
+          }
+        }
+      }, (error) => {
+        console.error('Error listening to partner document:', error);
+      });
+
+      unsubscribes.push(unsubscribe);
+    });
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [conversations, userType]);
 
   useEffect(() => {
     if (!user) return;
@@ -66,13 +122,8 @@ const MessagesScreen: React.FC = () => {
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
-  const handleConversationPress = async (conversation: Conversation) => {
-    try {
-      await MessagingService.markMessagesAsRead(conversation.id!, user!.uid);
-      (navigation as any).navigate('Conversation', { conversation });
-    } catch (error) {
-      console.error('Error:', error);
-    }
+  const handleConversationPress = (conversation: Conversation) => {
+    (navigation as any).navigate('Conversation', { conversation });
   };
 
   const handleNewChatSimple = async () => {
@@ -91,7 +142,8 @@ const MessagesScreen: React.FC = () => {
         user.uid,
         user.email?.split('@')[0] || 'Client',
         'test-store-id',
-        'Test Boutique'
+        'Test Boutique',
+        myPhoto || undefined
       );
 
       console.log('Conversation created:', conversation);
@@ -106,6 +158,15 @@ const MessagesScreen: React.FC = () => {
 
   const getPartnerName = (conv: Conversation) => {
     return userType === 'buyer' ? conv.storeName : conv.buyerName;
+  };
+
+  const getPartnerPhoto = (conv: Conversation) => {
+    // Use Firestore photo (source of truth) with fallback to conversation data
+    const partnerId = userType === 'buyer' ? conv.storeId : conv.buyerId;
+    if (partnerId && partnerPhotos[partnerId]) {
+      return partnerPhotos[partnerId];
+    }
+    return userType === 'buyer' ? conv.storePhotoURL : conv.buyerPhotoURL;
   };
 
   const getMessagePreview = (conv: Conversation) => {
@@ -128,13 +189,18 @@ const MessagesScreen: React.FC = () => {
   return (
     <View style={s.root}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Messages</Text>
-        <TouchableOpacity style={s.newChatBtn} onPress={() => handleNewChatSimple()}>
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.white} strokeWidth={2}>
-            <Circle cx={12} cy={12} r={10} />
-            <Path d="M12 8v8M8 12h8" strokeLinecap="round" />
-          </Svg>
-        </TouchableOpacity>
+        <View style={s.headerLeft}>
+          <Text style={s.headerTitle}>Messages</Text>
+          <Text style={s.headerSubtitle}>{conversations.length} conversation{conversations.length > 1 ? 's' : ''}</Text>
+        </View>
+        {userType === 'buyer' && (
+          <TouchableOpacity style={s.newChatBtn} onPress={() => handleNewChatSimple()}>
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={C.white} strokeWidth={2.5}>
+              <Circle cx={12} cy={12} r={10} />
+              <Path d="M12 8v8M8 12h8" strokeLinecap="round" />
+            </Svg>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={s.content} showsVerticalScrollIndicator={false}>
@@ -142,7 +208,9 @@ const MessagesScreen: React.FC = () => {
           <View style={s.emptyState}>
             <Text style={s.emptyIcon}>💬</Text>
             <Text style={s.emptyTitle}>Aucun message</Text>
-            <Text style={s.emptySub}>Commencez une conversation avec une boutique</Text>
+            <Text style={s.emptySub}>
+              {userType === 'buyer' ? 'Commencez une conversation avec une boutique' : 'Vous recevrez ici les messages de vos clients'}
+            </Text>
           </View>
         ) : (
           conversations.map(conv => (
@@ -153,9 +221,13 @@ const MessagesScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <View style={s.avatarContainer}>
-                <View style={[s.avatar, s.avatarPlaceholder]}>
-                  <Text style={s.avatarText}>{getPartnerName(conv).charAt(0)}</Text>
-                </View>
+                {getPartnerPhoto(conv) ? (
+                  <Image source={{ uri: getPartnerPhoto(conv) }} style={s.avatar} />
+                ) : (
+                  <View style={[s.avatar, s.avatarPlaceholder]}>
+                    <Text style={s.avatarText}>{getPartnerName(conv).charAt(0)}</Text>
+                  </View>
+                )}
               </View>
               <View style={s.convContent}>
                 <View style={s.convHeader}>
@@ -185,7 +257,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -193,14 +265,20 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: C.textDark },
+  headerLeft: { flex: 1 },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: C.textDark, letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 13, color: C.textLight, marginTop: 2 },
   newChatBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
   
   content: { flex: 1 },
@@ -218,25 +296,25 @@ const s = StyleSheet.create({
     backgroundColor: C.surface,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
+    marginHorizontal: 0,
   },
   avatarContainer: { marginRight: 16 },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   avatarPlaceholder: {
     backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 24, fontWeight: '700', color: C.white },
-  convContent: { flex: 1, justifyContent: 'center' },
+  avatarText: { fontSize: 26, fontWeight: '800', color: C.white },
+  convContent: { flex: 1, justifyContent: 'center', gap: 4 },
   convHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
   },
   convName: { fontSize: 16, fontWeight: '600', color: C.textDark, flex: 1 },
   convTime: { fontSize: 12, color: C.textLight, marginLeft: 8 },

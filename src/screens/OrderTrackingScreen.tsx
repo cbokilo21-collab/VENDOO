@@ -7,7 +7,18 @@ import { T } from '../theme';
 const OrderTrackingScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const { orderId } = route.params as { orderId: string };
+  const { orderId } = (route.params as { orderId?: string }) || {};
+  
+  if (!orderId) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 16, color: '#374151' }}>Order ID non fourni</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12, backgroundColor: '#FF6B35', borderRadius: 8 }}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Retour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
