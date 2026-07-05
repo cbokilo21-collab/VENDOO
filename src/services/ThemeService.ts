@@ -1,6 +1,8 @@
 import { FirestoreService } from './firestoreService';
 import { ThemeTemplate, getTemplateById } from '../constants/themeTemplates';
 import { IndustryTheme } from '../constants/industryThemes';
+import { PremiumTheme } from './ShoppyService';
+import { PreviewProduct } from '../components/ThemePreviewCanvas';
 import { where } from 'firebase/firestore';
 
 export interface ThemeConfig extends ThemeTemplate {
@@ -10,6 +12,8 @@ export interface ThemeConfig extends ThemeTemplate {
   footerTemplate?: string;
   /** Which industry preset (industryThemes.ts) this config was seeded from, if any. */
   industryThemeId?: string;
+  /** Which Shoppy premium theme (purchased from the marketplace) this config was seeded from, if any. */
+  premiumThemeId?: string;
   /**
    * Whether the storefront should fall back to the industry theme's demo
    * products when the boutique has none of its own yet. When false, the
@@ -41,6 +45,11 @@ export interface ThemeConfig extends ThemeTemplate {
       backgroundColor?: string;
       textColor?: string;
     };
+    /**
+     * Demo products carried over from the industry/premium preset at apply
+     * time, stored directly so the storefront never needs an extra lookup.
+     */
+    demoProducts?: PreviewProduct[];
   };
   customElements?: {
     header?: {
@@ -91,6 +100,33 @@ class ThemeService {
    * used as a fallback on the public storefront while real inventory is empty.
    */
   async applyIndustryTheme(boutiqueId: string, theme: IndustryTheme, showDemoProducts: boolean): Promise<string> {
+    return this.applyPreset(boutiqueId, theme, showDemoProducts, { industryThemeId: theme.id });
+  }
+
+  /**
+   * Apply a Shoppy premium theme (purchased from the marketplace) to a
+   * boutique. Mirrors applyIndustryTheme but tags the config with
+   * `premiumThemeId` instead, for provenance/analytics.
+   */
+  async applyPremiumTheme(boutiqueId: string, theme: PremiumTheme, showDemoProducts: boolean): Promise<string> {
+    return this.applyPreset(boutiqueId, theme, showDemoProducts, { premiumThemeId: theme.id });
+  }
+
+  private async applyPreset(
+    boutiqueId: string,
+    theme: IndustryTheme | PremiumTheme,
+    showDemoProducts: boolean,
+    origin: { industryThemeId?: string; premiumThemeId?: string }
+  ): Promise<string> {
+    const demoProducts: PreviewProduct[] = theme.demoProducts.map((d, i) => ({
+      id: `${theme.id || theme.name}-${i}`,
+      name: d.name,
+      price: d.price,
+      originalPrice: d.originalPrice,
+      emoji: d.emoji,
+      imageUri: d.image,
+    }));
+
     const config: Partial<ThemeConfig> = {
       boutiqueId,
       name: theme.name,
@@ -103,11 +139,12 @@ class ThemeService {
       headerTemplate: theme.headerTemplate,
       bodyTemplate: theme.bodyTemplate,
       footerTemplate: theme.footerTemplate,
-      industryThemeId: theme.id,
       showDemoProducts,
+      ...origin,
       customizations: {
         header: { title: theme.hero.title, subtitle: theme.hero.subtitle, backgroundImage: theme.hero.image },
         footer: { backgroundColor: theme.footer.backgroundColor, textColor: theme.footer.textColor },
+        demoProducts,
       },
       updatedAt: new Date(),
     };

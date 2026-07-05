@@ -11,6 +11,7 @@ import { BODY_TEMPLATES, BodyTemplate, getBodyTemplateById } from '../constants/
 import { FOOTER_TEMPLATES, FooterTemplate, getFooterTemplateById } from '../constants/footerTemplates';
 import { THEME_TEMPLATES } from '../constants/themeTemplates';
 import { getIndustryThemeById } from '../constants/industryThemes';
+import { QUICK_PALETTES, FONT_PAIRS, FONTS, COLOR_PRESETS } from '../constants/quickStyles';
 import { themeService, ThemeConfig } from '../services/ThemeService';
 import { useAuth } from '../contexts/AuthContext';
 import { useBoutique } from '../contexts/BoutiqueContext';
@@ -38,31 +39,6 @@ const C = {
   muted: '#9CA3AF',
   white: '#FFFFFF',
 };
-
-const FONTS = ['Inter', 'Poppins', 'Playfair Display', 'Roboto', 'Lato', 'Nunito', 'Montserrat', 'Open Sans', 'Fredoka', 'Oswald'];
-const COLOR_PRESETS = ['#FF6B35', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#0EA5E9', '#F59E0B', '#EF4444', '#14B8A6', '#1E293B', '#0F172A', '#FFFFFF'];
-
-// One-click curated palettes (richer builder tool).
-type Palette = { name: string; colors: { primary: string; secondary: string; accent: string; background: string; text: string } };
-const QUICK_PALETTES: Palette[] = [
-  { name: 'Street', colors: { primary: '#FF4D2E', secondary: '#111827', accent: '#FACC15', background: '#0F0F12', text: '#F9FAFB' } },
-  { name: 'Océan', colors: { primary: '#0EA5E9', secondary: '#0F172A', accent: '#38BDF8', background: '#FFFFFF', text: '#0F172A' } },
-  { name: 'Or & Nuit', colors: { primary: '#C6A15B', secondary: '#1C1917', accent: '#E7D2A5', background: '#0C0A09', text: '#F5F5F4' } },
-  { name: 'Terracotta', colors: { primary: '#B45309', secondary: '#7C2D12', accent: '#F59E0B', background: '#FFFBEB', text: '#292524' } },
-  { name: 'Punch', colors: { primary: '#EF4444', secondary: '#F97316', accent: '#FACC15', background: '#FFF7ED', text: '#1F2937' } },
-  { name: 'Frais', colors: { primary: '#16A34A', secondary: '#166534', accent: '#F59E0B', background: '#F0FDF4', text: '#14532D' } },
-  { name: 'Indigo', colors: { primary: '#6366F1', secondary: '#8B5CF6', accent: '#F59E0B', background: '#F8FAFC', text: '#0F172A' } },
-  { name: 'Rose', colors: { primary: '#EC4899', secondary: '#8B5CF6', accent: '#10B981', background: '#FDF2F8', text: '#1F2937' } },
-];
-
-// Curated font pairings (heading + body) for quick selection.
-const FONT_PAIRS: { name: string; heading: string; body: string }[] = [
-  { name: 'Moderne', heading: 'Montserrat', body: 'Inter' },
-  { name: 'Élégant', heading: 'Playfair Display', body: 'Lato' },
-  { name: 'Impact', heading: 'Oswald', body: 'Inter' },
-  { name: 'Amical', heading: 'Fredoka', body: 'Nunito' },
-  { name: 'Neutre', heading: 'Inter', body: 'Inter' },
-];
 
 const GEAR_PATH = 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z';
 
@@ -196,6 +172,9 @@ const ThemeBuilderAdvanced: React.FC = () => {
   // when the boutique has none of its own yet — chosen when applying the
   // theme, editable anytime from "Réglages du site".
   const [showDemoProducts, setShowDemoProducts] = useState(true);
+  // Demo products persisted at apply-time (works for both free industry
+  // themes and paid Shoppy premium themes, which have no static lookup).
+  const [loadedDemoProducts, setLoadedDemoProducts] = useState<PreviewProduct[] | undefined>(undefined);
 
   const boutiqueId = routeBoutiqueId || boutiqueData.id || user?.uid;
 
@@ -230,6 +209,7 @@ const ThemeBuilderAdvanced: React.FC = () => {
         }
         setIndustryThemeId(existingTheme.industryThemeId || (getIndustryThemeById(templateId) ? templateId : undefined));
         setShowDemoProducts(existingTheme.showDemoProducts ?? true);
+        setLoadedDemoProducts(existingTheme.customizations?.demoProducts);
       } else {
         setColors(prev => ({ ...prev, ...baseTemplate.colors }));
         setFonts(baseTemplate.fonts);
@@ -587,20 +567,24 @@ const ThemeBuilderAdvanced: React.FC = () => {
     imageUri: p.imageUri,
   }));
 
-  // Curated demo products from the chosen industry theme, shown when the
-  // boutique has no real products yet — mirrors exactly what "Voir le site"
-  // will display, respecting the merchant's with/without-demo choice.
+  // Curated demo products, shown when the boutique has no real products yet
+  // — mirrors exactly what "Voir le site" will display, respecting the
+  // merchant's with/without-demo choice. Prefers the products persisted at
+  // apply-time (works for Shoppy premium themes too), falling back to the
+  // static industry theme lookup for older saved themes.
   const industryTheme = industryThemeId ? getIndustryThemeById(industryThemeId) : undefined;
-  const demoProducts: PreviewProduct[] | undefined = (showDemoProducts && industryTheme)
-    ? industryTheme.demoProducts.map((d, i) => ({
+  const demoProducts: PreviewProduct[] | undefined = !showDemoProducts
+    ? undefined
+    : (loadedDemoProducts && loadedDemoProducts.length > 0)
+    ? loadedDemoProducts
+    : industryTheme?.demoProducts.map((d, i) => ({
         id: `${industryTheme.id}-${i}`,
         name: d.name,
         price: d.price,
         originalPrice: d.originalPrice,
         emoji: d.emoji,
         imageUri: d.image,
-      }))
-    : undefined;
+      }));
 
   const canvas = (
     <ThemePreviewCanvas

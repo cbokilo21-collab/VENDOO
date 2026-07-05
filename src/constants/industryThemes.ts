@@ -251,6 +251,44 @@ export const INDUSTRY_THEMES: IndustryTheme[] = [
       { name: 'Café Moulu', price: 3200, emoji: '☕', image: IMG('photo-1447933601403-0c6688de566e') },
     ],
   },
+
+  // ─────────────────────────────────────────── AUDIO / SNIKKY ───────────
+  {
+    id: 'snikky-audio',
+    industry: 'Audio & Son',
+    name: 'SNIKKY',
+    tagline: 'Le son qui bouge les sens',
+    description: 'Thème premium high-tech pour boutiques audio spécialisées : speakers, enceintes Bluetooth, home cinéma, soundbars, studio monitors et équipements professionnels.',
+    emoji: '🔊',
+    colors: { primary: '#D60000', secondary: '#000000', accent: '#FF3B30', background: '#FFFFFF', text: '#1A1A1A' },
+    fonts: { heading: 'Montserrat', body: 'Inter' },
+    layout: { productGridColumns: 4, spacing: 24 },
+    productCard: { showPrice: true, showOriginalPrice: true, showAddToCart: true, showFavorite: true, borderRadius: 12, shadow: true, layout: 'grid' },
+    headerTemplate: 'overlay',
+    bodyTemplate: 'masonry',
+    footerTemplate: 'dark',
+    footer: { backgroundColor: '#000000', textColor: '#FFFFFF' },
+    hero: {
+      title: 'SNIKKY - L\'Excellence Audio',
+      subtitle: 'Découvrez notre sélection premium de speakers, enceintes Bluetooth, home cinéma et équipements audio professionnels.',
+      cta: 'Explorer la collection',
+      image: IMG('photo-1543512214-098f8a2e9d48'),
+    },
+    demoProducts: [
+      { name: 'Soundbar Pro 5.1', price: 189000, originalPrice: 249000, emoji: '🔊', image: IMG('photo-1558029118-5e3a8e0c5b3a') },
+      { name: 'Speaker Bluetooth X', price: 45000, emoji: '🔊', image: IMG('photo-1608043152269-423dbba4e7e1') },
+      { name: 'Home Cinema 7.1', price: 450000, emoji: '🎬', image: IMG('photo-1585409008351-aa0e4c0f8c5a') },
+      { name: 'Studio Monitor 8"', price: 125000, emoji: '🎚️', image: IMG('photo-1598488039386-85b5e1c3e1c5') },
+      { name: 'Subwoofer 500W', price: 89000, emoji: '🔊', image: IMG('photo-1543512214-098f8a2e9d48') },
+      { name: 'Casque Noise Cancel', price: 67000, emoji: '🎧', image: IMG('photo-1505740420928-5e560c06d30e') },
+      { name: 'Enceinte Portable IPX7', price: 32000, emoji: '🔊', image: IMG('photo-1589003077984-891e6d92d1e4') },
+      { name: 'Amplifier Hi-Fi', price: 156000, emoji: '🎛️', image: IMG('photo-1550989460-7f7a6ec4f3c7') },
+      { name: 'Micro USB Studio', price: 45000, emoji: '🎤', image: IMG('photo-1590602847861-f05789a7e3e6') },
+      { name: 'Kit DJ Professional', price: 289000, emoji: '🎧', image: IMG('photo-1571380300428-38e8dad4b466') },
+      { name: 'Soundbar Compact', price: 58000, emoji: '🔊', image: IMG('photo-1558591710-4b4a1ae0f04d') },
+      { name: 'Enceinte Bookshelf', price: 78000, emoji: '🔊', image: IMG('photo-1589252464656-3a5e0f5c7c5f') },
+    ],
+  },
 ];
 
 export const getIndustryThemeById = (id: string): IndustryTheme | undefined =>

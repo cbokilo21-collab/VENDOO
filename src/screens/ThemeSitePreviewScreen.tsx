@@ -79,22 +79,27 @@ const ThemeSitePreviewScreen: React.FC = () => {
     imageUri: p.imageUri,
   }));
 
-  // Only fall back to the sector's demo products on the public storefront
-  // when the merchant explicitly opted in when applying the theme — otherwise
-  // stock/demo photos must never reach real customers.
+  // Only fall back to demo products on the public storefront when the
+  // merchant explicitly opted in when applying the theme — otherwise
+  // stock/demo photos must never reach real customers. Prefers the products
+  // persisted at apply-time (works for Shoppy premium themes too), falling
+  // back to the static industry theme lookup for older saved themes.
   const industryTheme = theme?.industryThemeId ? getIndustryThemeById(theme.industryThemeId) : undefined;
-  const demoProducts: PreviewProduct[] | undefined = (theme?.showDemoProducts && industryTheme)
-    ? industryTheme.demoProducts.map((d, i) => ({
+  const persistedDemoProducts = theme?.customizations?.demoProducts;
+  const demoProducts: PreviewProduct[] | undefined = !theme?.showDemoProducts
+    ? undefined
+    : (persistedDemoProducts && persistedDemoProducts.length > 0)
+    ? persistedDemoProducts
+    : industryTheme?.demoProducts.map((d, i) => ({
         id: `${industryTheme.id}-${i}`,
         name: d.name,
         price: d.price,
         originalPrice: d.originalPrice,
         emoji: d.emoji,
         imageUri: d.image,
-      }))
-    : undefined;
+      }));
 
-  const goEdit = () => navigation.navigate('ThemeBuilderAdvanced', { templateId: theme?.industryThemeId || 'custom', boutiqueId });
+  const goEdit = () => navigation.navigate('ThemeBuilderAdvanced', { templateId: theme?.industryThemeId || theme?.premiumThemeId || 'custom', boutiqueId });
 
   return (
     <View style={s.root}>

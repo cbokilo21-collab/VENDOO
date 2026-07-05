@@ -73,6 +73,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'sidebar.onlineStore': 'Boutique en ligne',
     'sidebar.themeBuilder': 'Constructeur de thème',
     'sidebar.appearance': 'Apparence',
+    'sidebar.shoppy': 'Shoppy',
+    'sidebar.shoppyAdmin': 'Gérer Shoppy',
     'sidebar.vendooShop': 'Vendoo Shop',
     'sidebar.viewMySite': 'Voir mon site',
     'sidebar.payments': 'Paiements',

@@ -39,6 +39,7 @@ const ADMIN_GROUPS = [
     label: 'sidebar.adminTools',
     items: [
       { route: 'Messages',           label: 'nav.messages', d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
+      { route: 'ShoppyAdmin',        label: 'sidebar.shoppyAdmin', d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
       { route: 'BroadcastMessaging', label: 'sidebar.broadcastMessaging', d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
       { route: 'PromotionMarket', label: 'sidebar.promotionMarket', d: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z' },
       { route: 'AdminLinks', label: 'sidebar.adminLinks', d: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71' },
@@ -79,6 +80,7 @@ const BUSINESS_GROUPS = [
     label: 'sidebar.boutique',
     items: [
       { route: 'ThemeSelection',     label: 'sidebar.themeBuilder', d: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
+      { route: 'Shoppy',             label: 'sidebar.shoppy',       d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
       { route: 'BoutiqueAppearance', label: 'sidebar.appearance',        d: 'M2 13.5V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.5M12 2L2 7l10 5 10-5-10-5z' },
       { route: 'VendooShop',         label: 'sidebar.vendooShop',      d: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0' },
       { route: 'PaymentSettings',    label: 'sidebar.payments',        d: 'M1 4h22v16H1zM1 10h22' },

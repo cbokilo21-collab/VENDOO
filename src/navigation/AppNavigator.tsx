@@ -97,6 +97,9 @@ import ThemeElementDetailScreen from '../screens/ThemeElementDetailScreen';
 import ThemeBuilder             from '../screens/ThemeBuilder';
 import ThemeBuilderAdvanced     from '../screens/ThemeBuilderAdvanced';
 import ThemeSitePreviewScreen   from '../screens/ThemeSitePreviewScreen';
+import ShoppyScreen             from '../screens/ShoppyScreen';
+import ShoppyCheckoutScreen     from '../screens/ShoppyCheckoutScreen';
+import ShoppyAdminScreen        from '../screens/ShoppyAdminScreen';
 import PackSelectionScreen      from '../screens/PackSelectionScreen';
 import PaymentScreen            from '../screens/PaymentScreen';
 import EmailVerificationScreen  from '../screens/EmailVerificationScreen';
@@ -172,6 +175,7 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="AdminLinks"          component={withWebShell(AdminLinksScreen,         'AdminLinks')} />
                 <Stack.Screen name="AppDownloads"        component={withWebShell(AppDownloadsScreen,       'AppDownloads')} />
                 <Stack.Screen name="AdminPaymentStats"   component={withWebShell(AdminPaymentStatsScreen,  'AdminPaymentStats')} />
+                <Stack.Screen name="ShoppyAdmin"         component={withWebShell(ShoppyAdminScreen,        'ShoppyAdmin')} />
                 <Stack.Screen name="Messages"            component={withWebShell(MessagesScreen,        'Messages')} />
                 <Stack.Screen name="Conversation"        component={withWebShell(ConversationScreen,       'Conversation')} />
                 <Stack.Screen name="Settings"            component={withWebShell(SettingsScreen,           'Settings')} />
@@ -230,6 +234,8 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="ThemeBuilderAdvanced" component={withWebShell(ThemeBuilderAdvanced,   'ThemeBuilderAdvanced')} />
                 <Stack.Screen name="ThemeSitePreview"     component={ThemeSitePreviewScreen} />
                 <Stack.Screen name="ThemeElementDetail"    component={withWebShell(ThemeElementDetailScreen, 'ThemeElementDetail')} />
+                <Stack.Screen name="Shoppy"                component={withWebShell(ShoppyScreen,           'Shoppy')} />
+                <Stack.Screen name="ShoppyCheckout"       component={withWebShell(ShoppyCheckoutScreen,   'Shoppy')} />
                 <Stack.Screen name="PackSelection"        component={withWebShell(PackSelectionScreen,     'PackSelection')} />
                 <Stack.Screen name="Payment"              component={withWebShell(PaymentScreen,           'Payment')} />
                 <Stack.Screen name="EmailVerification"    component={withWebShell(EmailVerificationScreen, 'EmailVerification')} />
