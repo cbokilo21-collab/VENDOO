@@ -10,6 +10,7 @@ import { HEADER_TEMPLATES, HeaderTemplate, getHeaderTemplateById } from '../cons
 import { BODY_TEMPLATES, BodyTemplate, getBodyTemplateById } from '../constants/bodyTemplates';
 import { FOOTER_TEMPLATES, FooterTemplate, getFooterTemplateById } from '../constants/footerTemplates';
 import { THEME_TEMPLATES } from '../constants/themeTemplates';
+import { getIndustryThemeById } from '../constants/industryThemes';
 import { themeService, ThemeConfig } from '../services/ThemeService';
 import { useAuth } from '../contexts/AuthContext';
 import { useBoutique } from '../contexts/BoutiqueContext';
@@ -40,6 +41,28 @@ const C = {
 
 const FONTS = ['Inter', 'Poppins', 'Playfair Display', 'Roboto', 'Lato', 'Nunito', 'Montserrat', 'Open Sans', 'Fredoka', 'Oswald'];
 const COLOR_PRESETS = ['#FF6B35', '#6366F1', '#8B5CF6', '#EC4899', '#10B981', '#0EA5E9', '#F59E0B', '#EF4444', '#14B8A6', '#1E293B', '#0F172A', '#FFFFFF'];
+
+// One-click curated palettes (richer builder tool).
+type Palette = { name: string; colors: { primary: string; secondary: string; accent: string; background: string; text: string } };
+const QUICK_PALETTES: Palette[] = [
+  { name: 'Street', colors: { primary: '#FF4D2E', secondary: '#111827', accent: '#FACC15', background: '#0F0F12', text: '#F9FAFB' } },
+  { name: 'Océan', colors: { primary: '#0EA5E9', secondary: '#0F172A', accent: '#38BDF8', background: '#FFFFFF', text: '#0F172A' } },
+  { name: 'Or & Nuit', colors: { primary: '#C6A15B', secondary: '#1C1917', accent: '#E7D2A5', background: '#0C0A09', text: '#F5F5F4' } },
+  { name: 'Terracotta', colors: { primary: '#B45309', secondary: '#7C2D12', accent: '#F59E0B', background: '#FFFBEB', text: '#292524' } },
+  { name: 'Punch', colors: { primary: '#EF4444', secondary: '#F97316', accent: '#FACC15', background: '#FFF7ED', text: '#1F2937' } },
+  { name: 'Frais', colors: { primary: '#16A34A', secondary: '#166534', accent: '#F59E0B', background: '#F0FDF4', text: '#14532D' } },
+  { name: 'Indigo', colors: { primary: '#6366F1', secondary: '#8B5CF6', accent: '#F59E0B', background: '#F8FAFC', text: '#0F172A' } },
+  { name: 'Rose', colors: { primary: '#EC4899', secondary: '#8B5CF6', accent: '#10B981', background: '#FDF2F8', text: '#1F2937' } },
+];
+
+// Curated font pairings (heading + body) for quick selection.
+const FONT_PAIRS: { name: string; heading: string; body: string }[] = [
+  { name: 'Moderne', heading: 'Montserrat', body: 'Inter' },
+  { name: 'Élégant', heading: 'Playfair Display', body: 'Lato' },
+  { name: 'Impact', heading: 'Oswald', body: 'Inter' },
+  { name: 'Amical', heading: 'Fredoka', body: 'Nunito' },
+  { name: 'Neutre', heading: 'Inter', body: 'Inter' },
+];
 
 const GEAR_PATH = 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z';
 
@@ -166,6 +189,13 @@ const ThemeBuilderAdvanced: React.FC = () => {
     header: { logo: '', title: '', subtitle: '', backgroundImage: '', videoUrl: '' },
     footer: { logo: '', backgroundColor: '#1E293B', textColor: '#FFFFFF' },
   });
+  const [industryThemeId, setIndustryThemeId] = useState<string | undefined>(
+    getIndustryThemeById(templateId) ? templateId : undefined
+  );
+  // Whether the public storefront should fall back to sector demo products
+  // when the boutique has none of its own yet — chosen when applying the
+  // theme, editable anytime from "Réglages du site".
+  const [showDemoProducts, setShowDemoProducts] = useState(true);
 
   const boutiqueId = routeBoutiqueId || boutiqueData.id || user?.uid;
 
@@ -198,6 +228,8 @@ const ThemeBuilderAdvanced: React.FC = () => {
             footer: { ...prev.footer, ...(existingTheme.customizations?.footer || {}) },
           }));
         }
+        setIndustryThemeId(existingTheme.industryThemeId || (getIndustryThemeById(templateId) ? templateId : undefined));
+        setShowDemoProducts(existingTheme.showDemoProducts ?? true);
       } else {
         setColors(prev => ({ ...prev, ...baseTemplate.colors }));
         setFonts(baseTemplate.fonts);
@@ -233,6 +265,8 @@ const ThemeBuilderAdvanced: React.FC = () => {
         bodyTemplate: selectedBody.id,
         footerTemplate: selectedFooter.id,
         customizations,
+        industryThemeId,
+        showDemoProducts,
         updatedAt: new Date(),
       };
 
@@ -418,6 +452,25 @@ const ThemeBuilderAdvanced: React.FC = () => {
 
         {panel === 'colors' && (
           <View style={t.customizationPanel}>
+            <Text style={t.label}>Palettes rapides</Text>
+            <View style={t.paletteGrid}>
+              {QUICK_PALETTES.map(pal => {
+                const active = colors.primary.toLowerCase() === pal.colors.primary.toLowerCase()
+                  && colors.background.toLowerCase() === pal.colors.background.toLowerCase();
+                return (
+                  <TouchableOpacity key={pal.name} style={[t.paletteCard, active && t.paletteCardActive]} onPress={() => setColors(pal.colors)} activeOpacity={0.85}>
+                    <View style={t.paletteSwatches}>
+                      <View style={[t.paletteSwatch, { backgroundColor: pal.colors.primary }]} />
+                      <View style={[t.paletteSwatch, { backgroundColor: pal.colors.secondary }]} />
+                      <View style={[t.paletteSwatch, { backgroundColor: pal.colors.accent }]} />
+                      <View style={[t.paletteSwatch, { backgroundColor: pal.colors.background, borderWidth: 1, borderColor: C.border }]} />
+                    </View>
+                    <Text style={[t.paletteName, active && { color: C.navy }]}>{pal.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={t.divider} />
             <ColorRow label="Couleur primaire" value={colors.primary} onChange={v => setColors(p => ({ ...p, primary: v }))} />
             <ColorRow label="Couleur secondaire" value={colors.secondary} onChange={v => setColors(p => ({ ...p, secondary: v }))} />
             <ColorRow label="Couleur d'accent" value={colors.accent} onChange={v => setColors(p => ({ ...p, accent: v }))} />
@@ -428,6 +481,19 @@ const ThemeBuilderAdvanced: React.FC = () => {
 
         {panel === 'fonts' && (
           <View style={t.customizationPanel}>
+            <Text style={t.label}>Associations rapides</Text>
+            <View style={t.fontChipRow}>
+              {FONT_PAIRS.map(fp => {
+                const active = fonts.heading === fp.heading && fonts.body === fp.body;
+                return (
+                  <TouchableOpacity key={fp.name} onPress={() => setFonts({ heading: fp.heading, body: fp.body })} style={[t.pairChip, active && t.fontChipActive]}>
+                    <Text style={[t.pairChipTitle, active && { color: C.white }, { fontFamily: fp.heading }]}>{fp.name}</Text>
+                    <Text style={[t.pairChipSub, active && { color: '#FFFFFFCC' }]}>{fp.heading} · {fp.body}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={t.divider} />
             <Text style={t.label}>Police des titres</Text>
             <View style={t.fontChipRow}>
               {FONTS.map(f => (
@@ -462,9 +528,22 @@ const ThemeBuilderAdvanced: React.FC = () => {
         {panel === 'site' && (
           <View style={t.customizationPanel}>
             <Field label="Nom de la boutique" value={siteName} placeholder="Ma Boutique" onChangeText={setSiteName} />
-            <Field label="Titre du header" value={customizations.header.title} placeholder="Votre titre" onChangeText={v => setCustomizations(p => ({ ...p, header: { ...p.header, title: v } }))} />
-            <Field label="Sous-titre du header" value={customizations.header.subtitle} placeholder="Votre sous-titre" onChangeText={v => setCustomizations(p => ({ ...p, header: { ...p.header, subtitle: v } }))} />
+            <Field label="Titre de la bannière (hero)" value={customizations.header.title} placeholder="Votre titre" onChangeText={v => setCustomizations(p => ({ ...p, header: { ...p.header, title: v } }))} />
+            <Field label="Sous-titre de la bannière" value={customizations.header.subtitle} placeholder="Votre sous-titre" onChangeText={v => setCustomizations(p => ({ ...p, header: { ...p.header, subtitle: v } }))} />
+            <Field label="Image de la bannière (URL)" value={customizations.header.backgroundImage} placeholder="https://..." onChangeText={v => setCustomizations(p => ({ ...p, header: { ...p.header, backgroundImage: v } }))} />
             <Field label="URL du logo" value={customizations.header.logo} placeholder="https://..." onChangeText={v => setCustomizations(p => ({ ...p, header: { ...p.header, logo: v } }))} />
+            {!!industryTheme && (
+              <>
+                <View style={t.divider} />
+                <View style={t.switchRow}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={t.label}>Produits de démonstration</Text>
+                    <Text style={t.switchHint}>Affiche des exemples du secteur tant que vous n'avez pas encore ajouté vos produits.</Text>
+                  </View>
+                  <Switch value={showDemoProducts} onValueChange={setShowDemoProducts} trackColor={{ false: C.border, true: C.navy }} thumbColor={C.white} />
+                </View>
+              </>
+            )}
           </View>
         )}
       </View>
@@ -508,6 +587,21 @@ const ThemeBuilderAdvanced: React.FC = () => {
     imageUri: p.imageUri,
   }));
 
+  // Curated demo products from the chosen industry theme, shown when the
+  // boutique has no real products yet — mirrors exactly what "Voir le site"
+  // will display, respecting the merchant's with/without-demo choice.
+  const industryTheme = industryThemeId ? getIndustryThemeById(industryThemeId) : undefined;
+  const demoProducts: PreviewProduct[] | undefined = (showDemoProducts && industryTheme)
+    ? industryTheme.demoProducts.map((d, i) => ({
+        id: `${industryTheme.id}-${i}`,
+        name: d.name,
+        price: d.price,
+        originalPrice: d.originalPrice,
+        emoji: d.emoji,
+        imageUri: d.image,
+      }))
+    : undefined;
+
   const canvas = (
     <ThemePreviewCanvas
       device={device}
@@ -519,6 +613,10 @@ const ThemeBuilderAdvanced: React.FC = () => {
       fonts={fonts}
       layout={layout}
       products={previewProducts}
+      demoProducts={demoProducts}
+      heroImage={customizations.header.backgroundImage}
+      ctaLabel={industryTheme?.hero.cta}
+      animated
       headerTitle={customizations.header.title}
       headerSubtitle={customizations.header.subtitle}
       footerBackground={customizations.footer.backgroundColor}
@@ -675,12 +773,24 @@ const t = StyleSheet.create({
   fontChipText: { fontSize: 12, color: C.textMid, fontWeight: '600' },
   fontChipTextActive: { color: C.white },
 
+  divider: { height: 1, backgroundColor: C.border, marginVertical: 16 },
+  paletteGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  paletteCard: { width: '47%', backgroundColor: C.bg, borderRadius: 10, padding: 8, borderWidth: 2, borderColor: 'transparent' },
+  paletteCardActive: { borderColor: C.navy, backgroundColor: C.white },
+  paletteSwatches: { flexDirection: 'row', gap: 3, marginBottom: 6 },
+  paletteSwatch: { flex: 1, height: 20, borderRadius: 4 },
+  paletteName: { fontSize: 11, fontWeight: '700', color: C.textDark },
+  pairChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
+  pairChipTitle: { fontSize: 13, fontWeight: '800', color: C.textDark },
+  pairChipSub: { fontSize: 10, color: C.textLight, marginTop: 1 },
+
   stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   stepperControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepperBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
   stepperBtnText: { fontSize: 16, fontWeight: '800', color: C.textDark },
   stepperValue: { fontSize: 13, fontWeight: '700', color: C.textDark, minWidth: 40, textAlign: 'center' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  switchHint: { fontSize: 11, color: C.textLight, marginTop: 3, lineHeight: 15 },
 });
 
 export default ThemeBuilderAdvanced;

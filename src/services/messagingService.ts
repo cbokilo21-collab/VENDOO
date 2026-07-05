@@ -51,13 +51,31 @@ export const MessagingService = {
   },
 
   /**
-   * Obtenir toutes les conversations d'un utilisateur (client ou boutique)
+   * Obtenir toutes les conversations d'un utilisateur (client ou boutique),
+   * ou l'ensemble des conversations de la plateforme pour un admin (supervision).
    */
-  async getUserConversations(userId: string, userType: 'buyer' | 'business'): Promise<Conversation[]> {
+  async getUserConversations(userId: string, userType: 'buyer' | 'business' | 'admin'): Promise<Conversation[]> {
+    if (userType === 'admin') {
+      return this.getAllConversations();
+    }
     const field = userType === 'buyer' ? 'buyerId' : 'storeId';
     return FirestoreService.query<Conversation>('conversations', [
       where(field, '==', userId),
     ]);
+  },
+
+  /**
+   * Obtenir toutes les conversations de la plateforme (vue admin)
+   */
+  async getAllConversations(): Promise<Conversation[]> {
+    try {
+      return await FirestoreService.query<Conversation>('conversations', [
+        orderBy('lastMessageTimestamp', 'desc'),
+      ]);
+    } catch (error) {
+      console.error('Error getting all conversations:', error);
+      return await FirestoreService.query<Conversation>('conversations', []);
+    }
   },
 
   /**
@@ -191,7 +209,10 @@ export const MessagingService = {
   /**
    * Écouter les conversations d'un utilisateur en temps réel
    */
-  subscribeToUserConversations(userId: string, userType: 'buyer' | 'business', callback: (conversations: Conversation[]) => void) {
+  subscribeToUserConversations(userId: string, userType: 'buyer' | 'business' | 'admin', callback: (conversations: Conversation[]) => void) {
+    if (userType === 'admin') {
+      return this.subscribeToAllConversations(callback);
+    }
     const field = userType === 'buyer' ? 'buyerId' : 'storeId';
     try {
       return FirestoreService.onQuery<Conversation>('conversations', [
@@ -203,6 +224,20 @@ export const MessagingService = {
       return FirestoreService.onQuery<Conversation>('conversations', [
         where(field, '==', userId),
       ], callback);
+    }
+  },
+
+  /**
+   * Écouter l'ensemble des conversations de la plateforme en temps réel (vue admin)
+   */
+  subscribeToAllConversations(callback: (conversations: Conversation[]) => void) {
+    try {
+      return FirestoreService.onQuery<Conversation>('conversations', [
+        orderBy('lastMessageTimestamp', 'desc'),
+      ], callback);
+    } catch (error) {
+      console.error('Error subscribing to all conversations:', error);
+      return FirestoreService.onQuery<Conversation>('conversations', [], callback);
     }
   },
 };

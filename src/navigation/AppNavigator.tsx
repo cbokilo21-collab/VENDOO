@@ -56,7 +56,6 @@ import SettingsScreen       from '../screens/SettingsScreen';
 import MyOrdersScreen       from '../screens/MyOrdersScreen';
 import FavoritesScreen      from '../screens/FavoritesScreen';
 import MessagesScreen       from '../screens/MessagesScreen';
-import AdminMessagesScreen   from '../screens/AdminMessagesScreen';
 import ConversationScreen   from '../screens/ConversationScreen';
 import FavoriteDistrictsScreen from '../screens/FavoriteDistrictsScreen';
 import SpendingScreen       from '../screens/SpendingScreen';
@@ -173,7 +172,7 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="AdminLinks"          component={withWebShell(AdminLinksScreen,         'AdminLinks')} />
                 <Stack.Screen name="AppDownloads"        component={withWebShell(AppDownloadsScreen,       'AppDownloads')} />
                 <Stack.Screen name="AdminPaymentStats"   component={withWebShell(AdminPaymentStatsScreen,  'AdminPaymentStats')} />
-                <Stack.Screen name="Messages"            component={withWebShell(AdminMessagesScreen,        'Messages')} />
+                <Stack.Screen name="Messages"            component={withWebShell(MessagesScreen,        'Messages')} />
                 <Stack.Screen name="Conversation"        component={withWebShell(ConversationScreen,       'Conversation')} />
                 <Stack.Screen name="Settings"            component={withWebShell(SettingsScreen,           'Settings')} />
               </>

@@ -4,8 +4,8 @@
  * templates + customizations, so changes in the customizer panel are reflected
  * instantly (WordPress Customizer / Elementor style live canvas).
  */
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Animated, Easing } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { HeaderTemplate } from '../constants/headerTemplates';
 import { BodyTemplate } from '../constants/bodyTemplates';
@@ -22,6 +22,39 @@ export interface PreviewProduct {
   emoji?: string;
   imageUri?: string;
 }
+
+/**
+ * Reveal — lightweight entrance animation (fade + slide up) that replays on mount.
+ * Give it a `key` tied to the active page so navigation re-triggers the animation.
+ */
+const Reveal: React.FC<{ children: React.ReactNode; delay?: number; enabled?: boolean; style?: any }> = ({ children, delay = 0, enabled = true, style }) => {
+  const progress = useRef(new Animated.Value(enabled ? 0 : 1)).current;
+  useEffect(() => {
+    if (!enabled) return;
+    progress.setValue(0);
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 520,
+      delay,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [enabled, delay]);
+  if (!enabled) return <View style={style}>{children}</View>;
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: progress,
+          transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+};
 
 export interface ThemePreviewColors {
   primary: string;
@@ -56,6 +89,10 @@ export interface ThemePreviewProps {
   footerBackground?: string;
   footerText?: string;
   products?: PreviewProduct[];
+  demoProducts?: PreviewProduct[];
+  heroImage?: string;
+  ctaLabel?: string;
+  animated?: boolean;
   chrome?: boolean;
   description?: string;
   email?: string;
@@ -86,9 +123,20 @@ const ICONS = {
 
 const withAlpha = (hex: string, alpha: string) => (hex?.startsWith('#') ? `${hex}${alpha}` : hex);
 
+// Nicely formats a price: thousands separators, no trailing .00 for whole numbers.
+const fmtPrice = (n: number) => {
+  const rounded = Math.round(n * 100) / 100;
+  const isWhole = Number.isInteger(rounded);
+  return rounded.toLocaleString('fr-FR', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
   device, siteName, header, body, footer, colors, fonts, layout,
   headerTitle, headerSubtitle, footerBackground, footerText, products,
+  demoProducts, heroImage, ctaLabel, animated = true,
   chrome = true, description, email, phone, instagram, facebook, city, quartier,
 }) => {
   const isMobile = device === 'mobile';
@@ -98,8 +146,13 @@ const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
   const productCount = isMobile ? 4 : Math.max(cols * 2, 6);
   const radius = layout.borderRadius;
   const hasRealProducts = !!products && products.length > 0;
-  const gridItems: (PreviewProduct | null)[] = hasRealProducts
-    ? products!.slice(0, isMobile ? 6 : productCount)
+  // Real products win; otherwise fall back to the theme's curated demo products,
+  // and only then to empty skeleton placeholders.
+  const sourceProducts: PreviewProduct[] | null = hasRealProducts
+    ? products!
+    : (demoProducts && demoProducts.length > 0 ? demoProducts : null);
+  const gridItems: (PreviewProduct | null)[] = sourceProducts
+    ? sourceProducts.slice(0, isMobile ? 6 : productCount)
     : Array.from({ length: productCount }, () => null);
 
   const [activePage, setActivePage] = useState<PreviewPage>('home');
@@ -198,20 +251,34 @@ const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
 
   const Hero = () => (
     <View style={[w.hero, { backgroundColor: colors.primary }]}>
-      {header.structure.type === 'video' && (
-        <View style={w.videoBadge}><Ico d="M23 7l-7 5 7 5V7zM1 5h15v14H1z" color="#fff" size={12} /><Text style={w.videoBadgeText}>Vidéo de fond</Text></View>
+      {!!heroImage && (
+        <>
+          <Image source={{ uri: heroImage }} style={w.heroImage} resizeMode="cover" />
+          <View style={[w.heroOverlay, { backgroundColor: withAlpha(colors.secondary || colors.text, 'B0') }]} />
+        </>
       )}
-      <Text style={[w.heroTitle, { fontFamily: fonts.heading }]} numberOfLines={2}>
-        {headerTitle || `Bienvenue chez ${siteName}`}
-      </Text>
-      <Text style={[w.heroSubtitle, { fontFamily: fonts.body }]} numberOfLines={2}>
-        {headerSubtitle || 'Découvrez notre nouvelle collection'}
-      </Text>
-      {header.structure.hasCTA && (
-        <TouchableOpacity style={w.heroCta} onPress={() => goToPage('shop')} activeOpacity={0.8}>
-          <Text style={[w.heroCtaText, { color: colors.primary }]}>Découvrir</Text>
-        </TouchableOpacity>
-      )}
+      <View style={w.heroContent}>
+        {header.structure.type === 'video' && (
+          <View style={w.videoBadge}><Ico d="M23 7l-7 5 7 5V7zM1 5h15v14H1z" color="#fff" size={12} /><Text style={w.videoBadgeText}>Vidéo de fond</Text></View>
+        )}
+        <Reveal enabled={animated} delay={80}>
+          <Text style={[w.heroTitle, { fontFamily: fonts.heading }]} numberOfLines={2}>
+            {headerTitle || `Bienvenue chez ${siteName}`}
+          </Text>
+        </Reveal>
+        <Reveal enabled={animated} delay={200}>
+          <Text style={[w.heroSubtitle, { fontFamily: fonts.body }]} numberOfLines={2}>
+            {headerSubtitle || 'Découvrez notre nouvelle collection'}
+          </Text>
+        </Reveal>
+        {header.structure.hasCTA && (
+          <Reveal enabled={animated} delay={320}>
+            <TouchableOpacity style={[w.heroCta, { backgroundColor: '#fff' }]} onPress={() => goToPage('shop')} activeOpacity={0.85}>
+              <Text style={[w.heroCtaText, { color: colors.primary }]}>{ctaLabel || 'Découvrir'}</Text>
+            </TouchableOpacity>
+          </Reveal>
+        )}
+      </View>
     </View>
   );
 
@@ -222,11 +289,15 @@ const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
   );
 
   const ProductCard = ({ product, i }: { product: PreviewProduct | null; i: number }) => (
+    <Reveal
+      enabled={animated}
+      delay={120 + Math.min(i, 8) * 70}
+      style={{ width: isMobile ? `${100 / cols - 3}%` : `${100 / cols - 2}%` }}
+    >
     <View
       style={[
         w.productCard,
         {
-          width: isMobile ? `${100 / cols - 3}%` : `${100 / cols - 2}%`,
           borderRadius: radius,
           backgroundColor: '#fff',
           borderColor: withAlpha(colors.text, '12'),
@@ -250,29 +321,49 @@ const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
         ) : (
           <View style={[w.productLine, { width: '80%', backgroundColor: withAlpha(colors.text, '25') }]} />
         )}
-        <Text style={[w.productPrice, { color: colors.primary, fontFamily: fonts.body }]}>
-          {product ? product.price.toFixed(2) : (9 + i * 3.5).toFixed(2)} €
-        </Text>
+        <View style={w.priceRow}>
+          <Text style={[w.productPrice, { color: colors.primary, fontFamily: fonts.body }]}>
+            {product ? fmtPrice(product.price) : fmtPrice(9 + i * 3.5)} F
+          </Text>
+          {product?.originalPrice && product.originalPrice > product.price && (
+            <Text style={[w.productPriceOld, { color: withAlpha(colors.text, '55') }]}>{fmtPrice(product.originalPrice)} F</Text>
+          )}
+        </View>
         {body.structure.hasQuickView && (
           <View style={[w.addBtn, { backgroundColor: colors.primary }]}><Text style={w.addBtnText}>+ Ajouter</Text></View>
         )}
       </View>
     </View>
+    </Reveal>
   );
 
   const HomeSection = () => (
     <View>
       {!showsHero && (
         <View style={[w.simpleWelcome, { backgroundColor: withAlpha(colors.primary, '12') }]}>
-          <Text style={[w.welcomeTitle, { color: colors.text, fontFamily: fonts.heading }]} numberOfLines={2}>
-            {headerTitle || `Bienvenue chez ${siteName}`}
-          </Text>
-          <Text style={[w.welcomeSubtitle, { color: withAlpha(colors.text, '80'), fontFamily: fonts.body }]} numberOfLines={2}>
-            {headerSubtitle || 'Découvrez notre sélection de produits'}
-          </Text>
-          <TouchableOpacity style={[w.welcomeCta, { backgroundColor: colors.primary }]} onPress={() => goToPage('shop')} activeOpacity={0.85}>
-            <Text style={w.welcomeCtaText}>Découvrir la boutique</Text>
-          </TouchableOpacity>
+          {!!heroImage && (
+            <>
+              <Image source={{ uri: heroImage }} style={w.heroImage} resizeMode="cover" />
+              <View style={[w.heroOverlay, { backgroundColor: withAlpha(colors.secondary || colors.text, 'A0') }]} />
+            </>
+          )}
+          <View style={heroImage ? w.heroContent : undefined}>
+            <Reveal enabled={animated} delay={80}>
+              <Text style={[w.welcomeTitle, heroImage ? { color: '#fff' } : { color: colors.text }, { fontFamily: fonts.heading }]} numberOfLines={2}>
+                {headerTitle || `Bienvenue chez ${siteName}`}
+              </Text>
+            </Reveal>
+            <Reveal enabled={animated} delay={200}>
+              <Text style={[w.welcomeSubtitle, { color: heroImage ? 'rgba(255,255,255,0.9)' : withAlpha(colors.text, '80'), fontFamily: fonts.body }]} numberOfLines={2}>
+                {headerSubtitle || 'Découvrez notre sélection de produits'}
+              </Text>
+            </Reveal>
+            <Reveal enabled={animated} delay={320}>
+              <TouchableOpacity style={[w.welcomeCta, { backgroundColor: colors.primary }]} onPress={() => goToPage('shop')} activeOpacity={0.85}>
+                <Text style={w.welcomeCtaText}>{ctaLabel || 'Découvrir la boutique'}</Text>
+              </TouchableOpacity>
+            </Reveal>
+          </View>
         </View>
       )}
       <View style={w.bodySection}>
@@ -338,7 +429,7 @@ const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
           )}
           {body.structure.type === 'list' ? (
             <View style={{ gap: layout.spacing }}>
-              {(hasRealProducts ? products!.slice(0, 3) : Array.from({ length: 3 }, () => null)).map((product, i) => (
+              {(sourceProducts ? sourceProducts.slice(0, 3) : Array.from({ length: 3 }, () => null)).map((product, i) => (
                 <View key={product?.id ?? i} style={[w.listRow, { borderRadius: radius, borderColor: withAlpha(colors.text, '12') }]}>
                   <View style={[w.listImage, { backgroundColor: withAlpha(colors.secondary, '30'), borderRadius: radius / 1.5, alignItems: 'center', justifyContent: 'center' }]}>
                     {product?.imageUri ? (
@@ -356,7 +447,7 @@ const ThemePreviewCanvas: React.FC<ThemePreviewProps> = ({
                         <View style={[w.productLine, { width: '35%', backgroundColor: withAlpha(colors.text, '15') }]} />
                       </>
                     )}
-                    <Text style={[w.productPrice, { color: colors.primary }]}>{(product ? product.price : 14 + i * 4).toFixed(2)} €</Text>
+                    <Text style={[w.productPrice, { color: colors.primary }]}>{fmtPrice(product ? product.price : 14 + i * 4)} F</Text>
                   </View>
                 </View>
               ))}
@@ -524,8 +615,8 @@ const w = StyleSheet.create({
   mobileMenuItem: { paddingHorizontal: 18, paddingVertical: 10 },
   navItemActive: { fontWeight: '800', textDecorationLine: 'underline' },
 
-  simpleWelcome: { paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },
-  welcomeTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
+  simpleWelcome: { paddingVertical: 36, paddingHorizontal: 24, alignItems: 'center', position: 'relative', overflow: 'hidden' },
+  welcomeTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
   welcomeSubtitle: { fontSize: 13, textAlign: 'center', marginBottom: 14 },
   welcomeCta: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999 },
   welcomeCtaText: { color: '#fff', fontWeight: '800', fontSize: 12 },
@@ -552,13 +643,16 @@ const w = StyleSheet.create({
   badge: { position: 'absolute', top: 6, right: 6, backgroundColor: '#111827', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   badgeText: { color: '#fff', fontSize: 8, fontWeight: '700' },
 
-  hero: { paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' },
+  hero: { paddingVertical: 48, paddingHorizontal: 24, alignItems: 'center', position: 'relative', overflow: 'hidden' },
+  heroImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+  heroOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  heroContent: { alignItems: 'center', width: '100%', zIndex: 2 },
   videoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 10 },
   videoBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
-  heroTitle: { color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
-  heroSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13, textAlign: 'center', marginBottom: 16 },
-  heroCta: { backgroundColor: '#fff', paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999 },
-  heroCtaText: { fontWeight: '800', fontSize: 12 },
+  heroTitle: { color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 8, letterSpacing: -0.4 },
+  heroSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13, textAlign: 'center', marginBottom: 18, maxWidth: 460 },
+  heroCta: { backgroundColor: '#fff', paddingHorizontal: 22, paddingVertical: 11, borderRadius: 999 },
+  heroCtaText: { fontWeight: '800', fontSize: 12.5 },
 
   bodySection: { padding: 20 },
   bodyHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
@@ -572,14 +666,18 @@ const w = StyleSheet.create({
   productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: '2%', rowGap: 12 },
   productCard: { borderWidth: 1, overflow: 'hidden' },
   productCardShadow: { shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
-  productImage: { height: 70, alignItems: 'flex-end', justifyContent: 'center', padding: 6, overflow: 'hidden' },
+  // Square aspect ratio (not a fixed pixel height) so product photos keep
+  // correct proportions no matter how many grid columns or the device width.
+  productImage: { aspectRatio: 1, width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' },
   productImagePhoto: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-  productEmoji: { fontSize: 28, alignSelf: 'center' },
-  wishlistIcon: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  productEmoji: { fontSize: 30, alignSelf: 'center' },
+  wishlistIcon: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   productInfo: { padding: 8, gap: 6 },
   productLine: { height: 7, borderRadius: 4 },
   productName: { fontSize: 11, fontWeight: '700' },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   productPrice: { fontSize: 12, fontWeight: '800' },
+  productPriceOld: { fontSize: 10, fontWeight: '600', textDecorationLine: 'line-through' },
   addBtn: { borderRadius: 6, paddingVertical: 5, alignItems: 'center', marginTop: 2 },
   addBtnText: { color: '#fff', fontSize: 9, fontWeight: '700' },
   listRow: { flexDirection: 'row', gap: 12, padding: 10, borderWidth: 1 },

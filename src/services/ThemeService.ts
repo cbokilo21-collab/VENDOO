@@ -1,5 +1,6 @@
 import { FirestoreService } from './firestoreService';
 import { ThemeTemplate, getTemplateById } from '../constants/themeTemplates';
+import { IndustryTheme } from '../constants/industryThemes';
 import { where } from 'firebase/firestore';
 
 export interface ThemeConfig extends ThemeTemplate {
@@ -7,6 +8,15 @@ export interface ThemeConfig extends ThemeTemplate {
   headerTemplate?: string;
   bodyTemplate?: string;
   footerTemplate?: string;
+  /** Which industry preset (industryThemes.ts) this config was seeded from, if any. */
+  industryThemeId?: string;
+  /**
+   * Whether the storefront should fall back to the industry theme's demo
+   * products when the boutique has none of its own yet. When false, the
+   * live site only ever shows real products (empty state otherwise) so
+   * demo/stock photos never reach real customers unless explicitly chosen.
+   */
+  showDemoProducts?: boolean;
   customizations?: {
     header?: {
       logo?: string;
@@ -71,6 +81,43 @@ class ThemeService {
     };
 
     return FirestoreService.create(this.collection, themeConfig);
+  }
+
+  /**
+   * Apply a fully-built industry theme preset to a boutique: seeds colours,
+   * fonts, layout, header/body/footer models and hero content in one shot.
+   * Creates the theme document if none exists yet, otherwise updates it.
+   * `showDemoProducts` controls whether the sector's demo products should be
+   * used as a fallback on the public storefront while real inventory is empty.
+   */
+  async applyIndustryTheme(boutiqueId: string, theme: IndustryTheme, showDemoProducts: boolean): Promise<string> {
+    const config: Partial<ThemeConfig> = {
+      boutiqueId,
+      name: theme.name,
+      description: theme.description,
+      preview: theme.emoji,
+      colors: theme.colors,
+      fonts: theme.fonts,
+      layout: theme.layout,
+      productCard: theme.productCard,
+      headerTemplate: theme.headerTemplate,
+      bodyTemplate: theme.bodyTemplate,
+      footerTemplate: theme.footerTemplate,
+      industryThemeId: theme.id,
+      showDemoProducts,
+      customizations: {
+        header: { title: theme.hero.title, subtitle: theme.hero.subtitle, backgroundImage: theme.hero.image },
+        footer: { backgroundColor: theme.footer.backgroundColor, textColor: theme.footer.textColor },
+      },
+      updatedAt: new Date(),
+    };
+
+    const existing = await this.getThemeByBoutique(boutiqueId);
+    if (existing?.id) {
+      await this.updateTheme(existing.id, config);
+      return existing.id;
+    }
+    return FirestoreService.create(this.collection, { ...config, createdAt: new Date() });
   }
 
   async getThemeByBoutique(boutiqueId: string): Promise<ThemeConfig | null> {

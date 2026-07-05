@@ -54,7 +54,7 @@ const MessagesScreen: React.FC = () => {
     const db = getFirestore();
 
     conversations.forEach(conv => {
-      const partnerId = userType === 'buyer' ? conv.storeId : conv.buyerId;
+      const partnerId = userType === 'business' ? conv.buyerId : conv.storeId;
       if (!partnerId) return;
 
       const partnerRef = doc(db, 'users', partnerId);
@@ -83,7 +83,7 @@ const MessagesScreen: React.FC = () => {
 
     const loadConversations = async () => {
       try {
-        const convs = await MessagingService.getUserConversations(user.uid, userType as 'buyer' | 'business');
+        const convs = await MessagingService.getUserConversations(user.uid, userType as 'buyer' | 'business' | 'admin');
         setConversations(convs);
       } catch (error) {
         console.error('Error loading conversations:', error);
@@ -96,7 +96,7 @@ const MessagesScreen: React.FC = () => {
 
     const unsubscribe = MessagingService.subscribeToUserConversations(
       user.uid,
-      userType as 'buyer' | 'business',
+      userType as 'buyer' | 'business' | 'admin',
       (convs) => {
         setConversations(convs);
       }
@@ -157,16 +157,18 @@ const MessagesScreen: React.FC = () => {
   };
 
   const getPartnerName = (conv: Conversation) => {
+    if (userType === 'admin') return `${conv.buyerName} ↔ ${conv.storeName}`;
     return userType === 'buyer' ? conv.storeName : conv.buyerName;
   };
 
   const getPartnerPhoto = (conv: Conversation) => {
-    // Use Firestore photo (source of truth) with fallback to conversation data
-    const partnerId = userType === 'buyer' ? conv.storeId : conv.buyerId;
+    // Use Firestore photo (source of truth) with fallback to conversation data.
+    // Admin isn't a participant, so default to the store's identity.
+    const partnerId = userType === 'business' ? conv.buyerId : conv.storeId;
     if (partnerId && partnerPhotos[partnerId]) {
       return partnerPhotos[partnerId];
     }
-    return userType === 'buyer' ? conv.storePhotoURL : conv.buyerPhotoURL;
+    return userType === 'business' ? conv.buyerPhotoURL : conv.storePhotoURL;
   };
 
   const getMessagePreview = (conv: Conversation) => {
@@ -209,7 +211,11 @@ const MessagesScreen: React.FC = () => {
             <Text style={s.emptyIcon}>💬</Text>
             <Text style={s.emptyTitle}>Aucun message</Text>
             <Text style={s.emptySub}>
-              {userType === 'buyer' ? 'Commencez une conversation avec une boutique' : 'Vous recevrez ici les messages de vos clients'}
+              {userType === 'buyer'
+                ? 'Commencez une conversation avec une boutique'
+                : userType === 'admin'
+                ? 'Les conversations de la plateforme apparaîtront ici'
+                : 'Vous recevrez ici les messages de vos clients'}
             </Text>
           </View>
         ) : (

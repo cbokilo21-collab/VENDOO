@@ -57,11 +57,12 @@ service cloud.firestore {
       allow write: if isSignedIn() && (request.resource.data.userId == request.auth.uid || boutiqueId == 'user');
     }
     
-    // Conversations collection - users can read/write conversations they participate in
+    // Conversations collection - users can read/write conversations they participate in.
+    // Admin can read/update any conversation for oversight and support.
     match /conversations/{conversationId} {
-      allow read: if isSignedIn() && (resource.data.buyerId == request.auth.uid || resource.data.storeId == request.auth.uid);
+      allow read: if isSignedIn() && (resource.data.buyerId == request.auth.uid || resource.data.storeId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && (request.resource.data.buyerId == request.auth.uid || request.resource.data.storeId == request.auth.uid);
-      allow update: if isSignedIn() && (resource.data.buyerId == request.auth.uid || resource.data.storeId == request.auth.uid);
+      allow update: if isSignedIn() && (resource.data.buyerId == request.auth.uid || resource.data.storeId == request.auth.uid || isAdmin());
     }
     
     // Messages collection - users can read/write messages in conversations they participate in

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Svg, { Path, Circle, Ellipse } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { onSnapshot, doc, getFirestore } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { MessagingService, Message, Conversation } from '../services/messagingService';
@@ -14,46 +14,65 @@ import UserAvatar from '../components/UserAvatar';
 type RootStackParamList = {
   Conversation: { conversation: Conversation };
   Messages: undefined;
+  BoutiqueCatalog: { boutiqueId?: string };
 };
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Conversation'>;
 
 const C = {
-  bg: '#EDEDED',
-  header: '#EDEDED',
+  bg: '#F6F7F9',
+  header: '#FFFFFF',
   surface: '#FFFFFF',
-  textDark: '#000000',
-  textLight: '#999999',
-  accent: '#07C160',
-  accentLight: '#95EC69',
-  border: '#E5E5E5',
+  textDark: '#111827',
+  textMid: '#374151',
+  textLight: '#94A3B8',
+  orange: '#FF6B35',
+  orangeSoft: '#FFF1EB',
+  border: '#ECEEF1',
+  theirBubble: '#F1F2F4',
   white: '#FFFFFF',
-  messageBg: '#95EC69',
-  messageText: '#000000',
 };
+
+const Ico: React.FC<{ d: string; color?: string; size?: number; sw?: number }> = ({ d, color = C.textDark, size = 20, sw = 2 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    <Path d={d} />
+  </Svg>
+);
+
+const dayLabel = (date: Date) => {
+  const now = new Date();
+  const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  if (isSameDay(date, now)) return "Aujourd'hui";
+  if (isSameDay(date, yesterday)) return 'Hier';
+  return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' });
+};
+
+const toDate = (timestamp: any): Date => (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp || Date.now()));
 
 const ConversationScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user, userType } = useAuth();
   const { conversation } = route.params || {};
-  
+
   if (!conversation) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 16, color: '#374151' }}>Conversation non fournie</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12, backgroundColor: '#FF6B35', borderRadius: 8 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20, padding: 12, backgroundColor: C.orange, borderRadius: 8 }}>
           <Text style={{ color: '#fff', fontWeight: '600' }}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
   }
-  
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [messageText, setMessageText] = useState('');
   const [sending, setSending] = useState(false);
-  const [showActionSheet, setShowActionSheet] = useState(false);
   const [myPhoto, setMyPhoto] = useState(user?.photoURL || '');
   const [partnerPhoto, setPartnerPhoto] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -64,7 +83,7 @@ const ConversationScreen: React.FC = () => {
 
     const db = getFirestore();
     const userRef = doc(db, 'users', user.uid);
-    
+
     const unsubscribe = onSnapshot(userRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const userData = docSnapshot.data();
@@ -83,12 +102,12 @@ const ConversationScreen: React.FC = () => {
   useEffect(() => {
     if (!conversation) return;
 
-    const partnerId = userType === 'buyer' ? conversation.storeId : conversation.buyerId;
+    const partnerId = userType === 'business' ? conversation.buyerId : conversation.storeId;
     if (!partnerId) return;
 
     const db = getFirestore();
     const partnerRef = doc(db, 'users', partnerId);
-    
+
     const unsubscribe = onSnapshot(partnerRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const userData = docSnapshot.data();
@@ -105,7 +124,7 @@ const ConversationScreen: React.FC = () => {
 
   useEffect(() => {
     loadMessages();
-    
+
     const unsubscribe = MessagingService.subscribeToMessages(conversation.id!, (msgs) => {
       setMessages(msgs);
       scrollToBottom();
@@ -135,7 +154,6 @@ const ConversationScreen: React.FC = () => {
 
     setSending(true);
     try {
-      // Always use buyer profile (user email) for sender name
       const senderName = user.email?.split('@')[0] || conversation.buyerName;
       await MessagingService.sendMessage(
         conversation.id!,
@@ -155,136 +173,148 @@ const ConversationScreen: React.FC = () => {
 
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return toDate(timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const isMyMessage = (message: Message) => {
-    return message.senderId === user?.uid;
-  };
+  const isMyMessage = (message: Message) => message.senderId === user?.uid;
 
   const getPartnerName = () => {
-    if (userType === 'buyer') {
-      return conversation.storeName;
-    }
-    return conversation.buyerName;
+    if (userType === 'admin') return `${conversation.buyerName} ↔ ${conversation.storeName}`;
+    return userType === 'buyer' ? conversation.storeName : conversation.buyerName;
   };
 
   const getPartnerPhoto = () => {
-    // Use Firestore photo (source of truth) with fallback to conversation data
-    if (partnerPhoto) {
-      return partnerPhoto;
+    if (partnerPhoto) return partnerPhoto;
+    return userType === 'business' ? conversation.buyerPhotoURL : conversation.storePhotoURL;
+  };
+
+  const getPartnerRoleLabel = () => {
+    if (userType === 'admin') return 'Conversation';
+    return userType === 'buyer' ? 'Boutique' : 'Client';
+  };
+
+  // Group messages under a date divider, matching the day it was sent.
+  type Row = { type: 'divider'; key: string; label: string } | { type: 'message'; key: string; message: Message };
+  const rows: Row[] = [];
+  let lastDay: string | null = null;
+  messages.forEach((message) => {
+    const date = toDate(message.timestamp);
+    const dayKey = date.toDateString();
+    if (dayKey !== lastDay) {
+      rows.push({ type: 'divider', key: `divider-${dayKey}`, label: dayLabel(date) });
+      lastDay = dayKey;
     }
-    return userType === 'buyer' ? conversation.storePhotoURL : conversation.buyerPhotoURL;
-  };
-
-  const getMyPhoto = () => {
-    return myPhoto;
-  };
-
+    rows.push({ type: 'message', key: message.id || `${message.senderId}-${dayKey}-${rows.length}`, message });
+  });
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={s.root}
-    >
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.root}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.textDark} strokeWidth={2}>
-            <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
-          </Svg>
+          <Ico d="M19 12H5M12 19l-7-7 7-7" color={C.orange} size={20} />
         </TouchableOpacity>
         <View style={s.headerInfo}>
           {getPartnerPhoto() ? (
-            <Image 
-              source={{ uri: getPartnerPhoto() }} 
-              style={s.headerAvatar}
-            />
+            <Image source={{ uri: getPartnerPhoto() }} style={s.headerAvatar} />
           ) : (
-            <UserAvatar 
-              name={getPartnerName()} 
-              gender="other" 
-              size={40} 
-            />
+            <UserAvatar name={getPartnerName()} gender="other" size={38} />
           )}
           <View style={s.headerTextContainer}>
-            <Text style={s.headerName}>{getPartnerName()}</Text>
-            <Text style={s.headerStatus}>En ligne</Text>
+            <Text style={s.headerName} numberOfLines={1}>{getPartnerName()}</Text>
+            <Text style={s.headerStatus}>{getPartnerRoleLabel()}</Text>
           </View>
         </View>
-        <TouchableOpacity style={s.headerBtn}>
-          <Ellipse cx={12} cy={12} rx={2} ry={2} fill={C.textDark} />
-          <Ellipse cx={12} cy={6} rx={2} ry={2} fill={C.textDark} />
-          <Ellipse cx={12} cy={18} rx={2} ry={2} fill={C.textDark} />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
-        style={s.messagesContainer} 
+        style={s.messagesContainer}
         contentContainerStyle={s.messagesContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Conversation intro panel */}
+        <View style={s.introPanel}>
+          {getPartnerPhoto() ? (
+            <Image source={{ uri: getPartnerPhoto() }} style={s.introAvatar} />
+          ) : (
+            <UserAvatar name={getPartnerName()} gender="other" size={84} />
+          )}
+          <Text style={s.introName}>{getPartnerName()}</Text>
+          <Text style={s.introRole}>{getPartnerRoleLabel()}</Text>
+          {userType === 'buyer' && (
+            <TouchableOpacity
+              style={s.introBtn}
+              onPress={() => navigation.navigate('BoutiqueCatalog', { boutiqueId: conversation.storeId })}
+              activeOpacity={0.85}
+            >
+              <Text style={s.introBtnText}>Voir la boutique</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {loading ? (
           <View style={s.loadingContainer}>
-            <ActivityIndicator size="large" color={C.accent} />
+            <ActivityIndicator size="large" color={C.orange} />
           </View>
         ) : messages.length === 0 ? (
           <View style={s.emptyContainer}>
-            <Text style={s.emptyText}>Aucun message</Text>
+            <Text style={s.emptyText}>Aucun message pour l'instant</Text>
           </View>
         ) : (
-          messages.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                s.messageRow,
-                isMyMessage(message) ? s.myMessageRow : s.theirMessageRow,
-              ]}
-            >
-              {!isMyMessage(message) && (
-                <View style={s.messageAvatar}>
-                  {message.senderPhotoURL ? (
-                    <Image source={{ uri: message.senderPhotoURL }} style={s.avatarImg} />
-                  ) : (
-                    <View style={[s.avatarImg, s.avatarPlaceholder]}>
-                      <Text style={s.avatarText}>{message.senderName.charAt(0)}</Text>
-                    </View>
-                  )}
+          rows.map((row) => {
+            if (row.type === 'divider') {
+              return (
+                <View key={row.key} style={s.dateDividerRow}>
+                  <Text style={s.dateDividerText}>{row.label}</Text>
                 </View>
-              )}
-              <View style={[
-                s.messageBubble,
-                isMyMessage(message) ? s.myMessage : s.theirMessage,
-              ]}>
-                <Text style={[
-                  s.messageText,
-                  isMyMessage(message) ? s.myMessageText : s.theirMessageText,
-                ]}>
-                  {message.text}
-                </Text>
-                <Text style={[
-                  s.messageTime,
-                  isMyMessage(message) ? s.myMessageTime : s.theirMessageTime,
-                ]}>
-                  {formatTime(message.timestamp)}
-                </Text>
+              );
+            }
+            const message: Message = row.message;
+            const mine = isMyMessage(message);
+            return (
+              <View key={row.key} style={[s.messageRow, mine ? s.myMessageRow : s.theirMessageRow]}>
+                {!mine && (
+                  <View style={s.messageAvatar}>
+                    {message.senderPhotoURL ? (
+                      <Image source={{ uri: message.senderPhotoURL }} style={s.avatarImg} />
+                    ) : (
+                      <View style={[s.avatarImg, s.avatarPlaceholder]}>
+                        <Text style={s.avatarText}>{message.senderName.charAt(0)}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                <View style={[s.messageBubble, mine ? s.myMessage : s.theirMessage]}>
+                  {userType === 'admin' && !mine && (
+                    <Text style={s.senderLabel}>{message.senderName}</Text>
+                  )}
+                  <Text style={[s.messageText, mine ? s.myMessageText : s.theirMessageText]}>
+                    {message.text}
+                  </Text>
+                  <View style={s.messageMetaRow}>
+                    <Text style={[s.messageTime, mine ? s.myMessageTime : s.theirMessageTime]}>
+                      {formatTime(message.timestamp)}
+                    </Text>
+                    {mine && (
+                      <Ico
+                        d={message.read ? 'M1 12l5 5L20 4M6 12l5 5L23 5' : 'M4 12l5 5L18 6'}
+                        color="rgba(255,255,255,0.85)"
+                        size={13}
+                        sw={2.4}
+                      />
+                    )}
+                  </View>
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
       <View style={s.inputContainer}>
-        <TouchableOpacity style={s.attachBtn} onPress={() => setShowActionSheet(true)}>
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.textLight} strokeWidth={2}>
-            <Circle cx={12} cy={12} r={10} />
-            <Path d="M12 8v8M8 12h8" strokeLinecap="round" />
-          </Svg>
-        </TouchableOpacity>
         <TextInput
           style={s.input}
-          placeholder="..."
+          placeholder="Message"
           placeholderTextColor={C.textLight}
           value={messageText}
           onChangeText={setMessageText}
@@ -298,9 +328,7 @@ const ConversationScreen: React.FC = () => {
           {sending ? (
             <ActivityIndicator size="small" color={C.white} />
           ) : (
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={C.white} strokeWidth={2}>
-              <Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round"/>
-            </Svg>
+            <Ico d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" color={C.white} size={18} />
           )}
         </TouchableOpacity>
       </View>
@@ -314,77 +342,91 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: C.header,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerInfo: { flex: 1, marginLeft: 4, flexDirection: 'row', alignItems: 'center' },
-  headerAvatar: { width: 40, height: 40, borderRadius: 20 },
-  headerTextContainer: { marginLeft: 8 },
-  headerName: { fontSize: 17, fontWeight: '600', color: C.textDark },
-  headerStatus: { fontSize: 12, color: C.textLight },
-  headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  
+  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.orangeSoft, marginRight: 4 },
+  headerInfo: { flex: 1, marginLeft: 8, flexDirection: 'row', alignItems: 'center' },
+  headerAvatar: { width: 38, height: 38, borderRadius: 19 },
+  headerTextContainer: { marginLeft: 10, flex: 1 },
+  headerName: { fontSize: 15.5, fontWeight: '700', color: C.textDark },
+  headerStatus: { fontSize: 12, color: C.textLight, marginTop: 1 },
+
   messagesContainer: { flex: 1 },
-  messagesContent: { padding: 12, paddingBottom: 8 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 },
-  emptyText: { fontSize: 16, color: C.textLight },
-  
-  messageRow: { marginBottom: 12, flexDirection: 'row', alignItems: 'flex-end' },
+  messagesContent: { paddingHorizontal: 14, paddingBottom: 12 },
+  loadingContainer: { paddingVertical: 40, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { justifyContent: 'center', alignItems: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 14, color: C.textLight },
+
+  introPanel: { alignItems: 'center', paddingVertical: 28, marginBottom: 8 },
+  introAvatar: { width: 84, height: 84, borderRadius: 42, marginBottom: 12 },
+  introName: { fontSize: 19, fontWeight: '800', color: C.textDark },
+  introRole: { fontSize: 13, color: C.textLight, marginTop: 2, marginBottom: 16 },
+  introBtn: { backgroundColor: C.textDark, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 },
+  introBtnText: { color: C.white, fontWeight: '700', fontSize: 13.5 },
+
+  dateDividerRow: { alignItems: 'center', marginVertical: 14 },
+  dateDividerText: { fontSize: 12, fontWeight: '600', color: C.textLight },
+
+  messageRow: { marginBottom: 10, flexDirection: 'row', alignItems: 'flex-end' },
   myMessageRow: { justifyContent: 'flex-end' },
   theirMessageRow: { justifyContent: 'flex-start' },
   messageAvatar: { marginRight: 8 },
-  avatarImg: { width: 36, height: 36, borderRadius: 18 },
-  avatarPlaceholder: { backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  avatarImg: { width: 30, height: 30, borderRadius: 15 },
+  avatarPlaceholder: { backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   messageBubble: {
-    maxWidth: '70%',
-    padding: 12,
-    borderRadius: 18,
+    maxWidth: '72%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  myMessage: { backgroundColor: C.messageBg, borderBottomRightRadius: 4 },
-  theirMessage: { backgroundColor: C.surface, borderBottomLeftRadius: 4 },
-  messageText: { fontSize: 15, color: C.messageText, lineHeight: 20 },
-  myMessageText: { color: C.messageText },
+  myMessage: { backgroundColor: C.orange, borderBottomRightRadius: 6 },
+  theirMessage: { backgroundColor: C.theirBubble, borderBottomLeftRadius: 6 },
+  messageText: { fontSize: 15, lineHeight: 20 },
+  myMessageText: { color: C.white },
   theirMessageText: { color: C.textDark },
-  messageTime: { fontSize: 11, marginTop: 4 },
-  myMessageTime: { color: 'rgba(0,0,0,0.5)', textAlign: 'right' },
-  theirMessageTime: { color: C.textLight, textAlign: 'right' },
-  
+  senderLabel: { fontSize: 11, fontWeight: '700', color: C.orange, marginBottom: 2 },
+  messageMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 4 },
+  messageTime: { fontSize: 11 },
+  myMessageTime: { color: 'rgba(255,255,255,0.85)' },
+  theirMessageTime: { color: C.textLight },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     backgroundColor: C.header,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     borderTopColor: C.border,
   },
-  attachBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', paddingBottom: 4 },
   input: {
     flex: 1,
-    backgroundColor: C.surface,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
+    backgroundColor: C.bg,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     maxHeight: 100,
-    fontSize: 16,
+    fontSize: 15,
     color: C.textDark,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-    backgroundColor: C.accent,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: C.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 4,
+    shadowColor: C.orange,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
-  sendBtnDisabled: { backgroundColor: C.textLight },
+  sendBtnDisabled: { backgroundColor: C.textLight, shadowOpacity: 0 },
 });
 
 export default ConversationScreen;

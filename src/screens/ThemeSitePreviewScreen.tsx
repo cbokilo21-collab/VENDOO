@@ -7,6 +7,7 @@ import { HEADER_TEMPLATES, HeaderTemplate, getHeaderTemplateById } from '../cons
 import { BODY_TEMPLATES, BodyTemplate, getBodyTemplateById } from '../constants/bodyTemplates';
 import { FOOTER_TEMPLATES, FooterTemplate, getFooterTemplateById } from '../constants/footerTemplates';
 import { themeService, ThemeConfig } from '../services/ThemeService';
+import { getIndustryThemeById } from '../constants/industryThemes';
 import { useBoutique } from '../contexts/BoutiqueContext';
 import { useProducts } from '../contexts/ProductsContext';
 import ThemePreviewCanvas, { PreviewDevice, PreviewProduct } from '../components/ThemePreviewCanvas';
@@ -78,7 +79,22 @@ const ThemeSitePreviewScreen: React.FC = () => {
     imageUri: p.imageUri,
   }));
 
-  const goEdit = () => navigation.navigate('ThemeBuilderAdvanced', { templateId: 'custom', boutiqueId });
+  // Only fall back to the sector's demo products on the public storefront
+  // when the merchant explicitly opted in when applying the theme — otherwise
+  // stock/demo photos must never reach real customers.
+  const industryTheme = theme?.industryThemeId ? getIndustryThemeById(theme.industryThemeId) : undefined;
+  const demoProducts: PreviewProduct[] | undefined = (theme?.showDemoProducts && industryTheme)
+    ? industryTheme.demoProducts.map((d, i) => ({
+        id: `${industryTheme.id}-${i}`,
+        name: d.name,
+        price: d.price,
+        originalPrice: d.originalPrice,
+        emoji: d.emoji,
+        imageUri: d.image,
+      }))
+    : undefined;
+
+  const goEdit = () => navigation.navigate('ThemeBuilderAdvanced', { templateId: theme?.industryThemeId || 'custom', boutiqueId });
 
   return (
     <View style={s.root}>
@@ -132,6 +148,9 @@ const ThemeSitePreviewScreen: React.FC = () => {
                 shadow: theme.productCard.shadow,
               }}
               products={previewProducts}
+              demoProducts={demoProducts}
+              heroImage={theme.customizations?.header?.backgroundImage}
+              animated
               headerTitle={theme.customizations?.header?.title}
               headerSubtitle={theme.customizations?.header?.subtitle}
               footerBackground={theme.customizations?.footer?.backgroundColor}
